@@ -1,0 +1,17 @@
+{
+  "apps": [{
+    "name": "api",
+    "script": "index.js",
+    "cwd": "/var/sites/node.js/api",
+    "watch": true,
+    "ignore_watch": ["public", "views"],
+    "node_args": "--harmony --es_staging",
+    "watch_options": {
+        "followSymLinks": false
+    },
+    "env": {
+      "NODE_ENV": "developement"
+    }
+  }]
+}
+

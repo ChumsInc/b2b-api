@@ -1,0 +1,42 @@
+//
+   Created by steve on 10/28/2016.
+
+div(style="font-family: sans-serif;")
+    table(style="font-size: small" cellpadding="3" cellspacing="0")
+        thead
+            tr
+                td(colspan="5")
+                    a(href="https://www.chums.com/customer/?hash=" + account.hash)
+                        img(src="https://www.chums.com/images/chums/abandoned-cart-header.jpg?hash=" + account.hash, alt="Free shipping. On us. All the time", style="max-width: 600px; width: 100%;")
+            tr
+                td(colspan="5")
+                    h2  Hi #{account.firstname} #{account.lastname}
+                    div
+                        | Was it something we said? You left some Chums gear in your cart. Let us#{' '}
+                        a(href="https://www.chums.com/customer/?hash=" + account.hash) take you back.
+            tr
+                td(style="font-size: x-small; font-weight: bold; background-color: #eee;") ...
+                td(style="font-size: x-small; font-weight: bold; background-color: #eee;") Item
+                td(style="font-size: x-small; font-weight: bold; background-color: #eee;") Price
+                td(style="font-size: x-small; font-weight: bold; background-color: #eee;") Qty
+                td(style="font-size: x-small; font-weight: bold; background-color: #eee;") Total
+
+        tfoot
+            tr
+                td(colspan="5")
+                    | If you need additional assistance, simply contact#{' '}
+                    a(href="mailto:cs@chums.com") cs@chums.com
+                    | #{' '}and we'd be happy to help you or you can log in and get your Chums gear.
+        tbody
+            for item in account.cart
+                tr
+                    td(style="font-weight: bold; border-bottom: 1px solid #888; padding-top: 10px;")
+                        img(src="https://www.chums.com/images/products/80/" + item.image, alt=item.itemCode)
+                    td(style="font-weight: bold; border-bottom: 1px solid #666; padding-top: 10px;")
+                        div !{item.name}
+                        div SKU #{item.itemCode}
+                    td(style="font-weight: bold; border-bottom: 1px solid #888; padding-top: 10px;") #{item.finalPrice.toFixed(2)}
+                    td(style="font-weight: bold; border-bottom: 1px solid #888; padding-top: 10px;") #{item.quantity}
+                    td(style="font-weight: bold; border-bottom: 1px solid #888; padding-top: 10px;") #{item.extPrice.toFixed(2)}
+    hr
+    div(style="font-size: xx-small;") &copy; 2016 Chums Inc.
