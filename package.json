@@ -13,12 +13,23 @@
     "cookie-parser": "^1.4.5",
     "date-fns": "^2.12.0",
     "debug": "^4.1.1",
-    "dotenv": "^14.2.0",
+    "dotenv": "^16.0.1",
     "express": "^4.17.1",
     "helmet": "^5.0.1",
     "mysql2": "^2.1.0",
     "node-mysql": "0.4.x",
     "pug": "^3.0.2",
     "x-frame-options": "1.0.x"
+  },
+  "devDependencies": {
+    "auto-changelog": "^2.4.0"
+  },
+  "auto-changelog": {
+    "template": "keepachangelog",
+    "unreleased": true,
+    "commitLimit": false
+  },
+  "scripts": {
+    "version": "auto-changelog -p && git add CHANGELOG.md"
   }
 }
