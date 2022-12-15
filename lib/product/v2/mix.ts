@@ -1,13 +1,22 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.delMixItem = exports.postMixItems = exports.postMix = exports.getSageBOM = exports.getMix = exports.saveMix = exports.loadSageBillComponents = exports.loadMix = void 0;
-const debug_1 = __importDefault(require("debug"));
-const chums_local_modules_1 = require("chums-local-modules");
-const debug = (0, debug_1.default)('chums:lib:product:v2:mix');
-async function loadMix(id) {
+import Debug from 'debug';
+import {mysql2Pool} from 'chums-local-modules';
+import {BooleanLike, ProductAdditionalData, ProductMixComponent, ProductMixVariant} from "b2b-types";
+import {RowDataPacket} from "mysql2";
+
+const debug = Debug('chums:lib:product:v2:mix');
+
+interface ProductMixRow extends Omit<ProductMixVariant, 'status'|'inactiveItem'>, RowDataPacket {
+    status: BooleanLike,
+    inactiveItem: BooleanLike,
+}
+
+interface ProductMixComponentRow extends Omit<ProductMixComponent, 'additionalData'|'color'|'color_code'|'color_name'>, RowDataPacket {
+    additionalData: string;
+    color_code: string;
+    color_name: string;
+}
+
+export async function loadMix(id: number | string): Promise<ProductMixVariant | null> {
     try {
         const query = `SELECT mix.mixID                       AS id,
                               mix.productsID                  AS productId,
@@ -62,35 +71,34 @@ async function loadMix(id) {
                                             ON c.colors_id = d.colorsId
                              WHERE m.productsID = :id
                              ORDER BY ItemCode`;
-        const data = { id };
-        const [[mix]] = await chums_local_modules_1.mysql2Pool.query(query, data);
-        const [detail] = await chums_local_modules_1.mysql2Pool.query(queryDetail, data);
+        const data = {id};
+        const [[mix]] = await mysql2Pool.query<ProductMixRow[]>(query, data);
+        const [detail] = await mysql2Pool.query<ProductMixComponentRow[]>(queryDetail, data);
+
         if (!mix) {
             return null;
         }
         mix.QuantityAvailable = Number(mix.QuantityAvailable);
-        const items = detail.map(row => {
-            const { colorsId: id, color_code: code, color_name: name } = row;
-            let additionalData = {};
+        const items: ProductMixComponent[] = detail.map(row => {
+            const {colorsId: id, color_code: code, color_name: name} = row as ProductMixComponentRow;
+            let additionalData: ProductAdditionalData = {};
             try {
                 additionalData = JSON.parse(row.additionalData || '{}');
-            }
-            catch (err) {
+            } catch (err) {
             }
             return {
                 ...row,
                 additionalData,
-                color: { id, code, name },
-            };
+                color: {id, code, name},
+            }
         });
         return {
             ...mix,
             inactiveItem: !!mix.inactiveItem,
             items,
             status: !!mix.status,
-        };
-    }
-    catch (err) {
+        }
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("loadMix()", err.message);
             return Promise.reject(err);
@@ -99,8 +107,20 @@ async function loadMix(id) {
         return Promise.reject(new Error('Error in loadMix()'));
     }
 }
-exports.loadMix = loadMix;
-async function loadSageBillComponents({ id }) {
+
+export interface SageBillComponent {
+    id: number,
+    mixID: number,
+    itemCode?: string | null,
+    colorsId?: number | null,
+    colorCode?: string | null,
+    colorName?: string | null,
+}
+
+export interface SageBillComponentRow extends SageBillComponent, RowDataPacket {
+}
+
+export async function loadSageBillComponents({id}): Promise<SageBillComponent[]> {
     try {
         const query = `SELECT pmd.mixDetailID                              AS id,
                               mix.mixID,
@@ -124,11 +144,10 @@ async function loadSageBillComponents({ id }) {
                                       ON c.colors_id = pmd.colorsId
                        WHERE mix.productsID = :id
                        ORDER BY d.LineSeqNo`;
-        const data = { id };
-        const [rows] = await chums_local_modules_1.mysql2Pool.query(query, data);
+        const data = {id};
+        const [rows] = await mysql2Pool.query<SageBillComponentRow[]>(query, data);
         return rows;
-    }
-    catch (err) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("loadSageBillComponents()", err.message);
             return Promise.reject(err);
@@ -137,8 +156,13 @@ async function loadSageBillComponents({ id }) {
         return Promise.reject(new Error('Error in loadSageBillComponents()'));
     }
 }
-exports.loadSageBillComponents = loadSageBillComponents;
-async function saveMix({ productId, itemCode, mixName, status }) {
+
+export async function saveMix({
+                                  productId,
+                                  itemCode,
+                                  mixName,
+                                  status
+                              }: Partial<ProductMixVariant>): Promise<ProductMixVariant | null> {
     try {
         if (!productId) {
             return Promise.reject(new Error('Product ID is required'));
@@ -148,11 +172,11 @@ async function saveMix({ productId, itemCode, mixName, status }) {
                        ON DUPLICATE KEY UPDATE itemCode = :itemCode,
                                                mixName  = :mixName,
                                                active   = :status`;
-        const data = { productId, itemCode, mixName, status };
-        await chums_local_modules_1.mysql2Pool.query(query, data);
+        const data = {productId, itemCode, mixName, status};
+        await mysql2Pool.query(query, data);
+
         return await loadMix(productId);
-    }
-    catch (err) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("saveMix()", err.message);
             return Promise.reject(err);
@@ -161,20 +185,19 @@ async function saveMix({ productId, itemCode, mixName, status }) {
         return Promise.reject(new Error('Error in saveMix()'));
     }
 }
-exports.saveMix = saveMix;
-async function saveMixItem({ id, mixID, itemCode, colorsId, itemQuantity }) {
+
+async function saveMixItem({id, mixID, itemCode, colorsId, itemQuantity}: ProductMixComponent): Promise<void> {
     try {
         if (itemQuantity === 0) {
-            return await deleteMixItem({ id, mixID });
+            return await deleteMixItem({id, mixID});
         }
         const query = `INSERT INTO b2b_oscommerce.products_mixes_detail (mixID, itemCode, itemQuantity, colorsID)
                        VALUES (:mixID, :itemCode, :itemQuantity, :colorsId)
                        ON DUPLICATE KEY UPDATE itemQuantity = :itemQuantity,
                                                colorsID     = :colorsId`;
-        const data = { mixID, itemCode, itemQuantity, colorsId };
-        await chums_local_modules_1.mysql2Pool.query(query, data);
-    }
-    catch (err) {
+        const data = {mixID, itemCode, itemQuantity, colorsId};
+        await mysql2Pool.query(query, data);
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("saveMixItem()", err.message);
             return Promise.reject(err);
@@ -183,16 +206,16 @@ async function saveMixItem({ id, mixID, itemCode, colorsId, itemQuantity }) {
         return Promise.reject(new Error('Error in saveMixItem()'));
     }
 }
-async function deleteMixItem({ id, mixID }) {
+
+async function deleteMixItem({id, mixID}: Partial<ProductMixComponent>): Promise<void> {
     try {
         const query = `DELETE
                        FROM b2b_oscommerce.products_mixes_detail
                        WHERE mixDetailID = :id
                          AND mixID = :mixID`;
-        const data = { id, mixID };
-        await chums_local_modules_1.mysql2Pool.query(query, data);
-    }
-    catch (err) {
+        const data = {id, mixID};
+        await mysql2Pool.query(query, data);
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("deleteMixItem()", err.message);
             return Promise.reject(err);
@@ -201,71 +224,67 @@ async function deleteMixItem({ id, mixID }) {
         return Promise.reject(new Error('Error in deleteMixItem()'));
     }
 }
-async function getMix(req, res) {
+
+export async function getMix(req, res) {
     try {
         const mix = await loadMix(req.params.productId);
-        res.json({ mix });
-    }
-    catch (err) {
+        res.json({mix});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getMix()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in getMix' });
+        res.json({error: 'unknown error in getMix'});
     }
 }
-exports.getMix = getMix;
-async function getSageBOM(req, res) {
+
+export async function getSageBOM(req, res) {
     try {
         const components = await loadSageBillComponents(req.params);
-        res.json({ components });
-    }
-    catch (err) {
+        res.json({components});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getSageBOM()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in getSageBOM' });
+        res.json({error: 'unknown error in getSageBOM'});
     }
 }
-exports.getSageBOM = getSageBOM;
-async function postMix(req, res) {
+
+export async function postMix(req, res) {
     try {
         const mix = await saveMix(req.body);
-        res.json({ mix });
-    }
-    catch (err) {
+        res.json({mix});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postMix()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in postMix' });
+        res.json({error: 'unknown error in postMix'});
     }
 }
-exports.postMix = postMix;
-async function postMixItems(req, res) {
+
+export async function postMixItems(req, res) {
     try {
         const items = req.body;
         debug('postMixItems()', items);
         await Promise.all(items.map(item => saveMixItem(item)));
         const mix = await loadMix(req.params.productId);
-        res.json({ mix });
-    }
-    catch (err) {
+        res.json({mix});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postMixItems()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in postMixItems' });
+        res.json({error: 'unknown error in postMixItems'});
     }
 }
-exports.postMixItems = postMixItems;
-async function delMixItem(req, res) {
+
+export async function delMixItem(req, res) {
     try {
-        const { productId, mixID, id } = req.params;
-        await deleteMixItem({ mixID, id });
-    }
-    catch (err) {
+        const {productId, mixID, id} = req.params;
+        await deleteMixItem({mixID, id});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("delMixItem()", err.message);
             return Promise.reject(err);
@@ -274,4 +293,3 @@ async function delMixItem(req, res) {
         return Promise.reject(new Error('Error in delMixItem()'));
     }
 }
-exports.delMixItem = delMixItem;

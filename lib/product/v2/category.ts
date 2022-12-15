@@ -1,14 +1,30 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.delCategoryItem = exports.postItemSort = exports.postCategoryItem = exports.delCategory = exports.postCategory = exports.getCategoryItems = exports.getCategories = exports.getCategory = exports.loadCategory = exports.loadCategories = void 0;
-const debug_1 = __importDefault(require("debug"));
-const chums_local_modules_1 = require("chums-local-modules");
-const debug = (0, debug_1.default)('chums:lib:product:v2:category');
-const { loadCategoryItems, saveCategoryItem, deleteCategoryItem, updateCategoryItemSort } = require('./category-items');
-async function loadCategories({ id = null, parentId = null, keyword = null }) {
+import Debug from 'debug';
+import {mysql2Pool} from 'chums-local-modules';
+import {Request, Response} from "express";
+import {ProductCategory} from "b2b-types";
+import {ResultSetHeader, RowDataPacket} from "mysql2";
+
+
+const debug = Debug('chums:lib:product:v2:category');
+const {loadCategoryItems, saveCategoryItem, deleteCategoryItem, updateCategoryItemSort} = require('./category-items');
+
+
+interface ProductCategoryRow extends ProductCategory, RowDataPacket {
+    moreData: string,
+}
+
+interface LoadCategoriesProps {
+    id?: string | number | null,
+    parentId?: string | number | null,
+    keyword?: string | null,
+}
+
+export async function loadCategories({
+                                  id = null,
+                                  parentId = null,
+                                  keyword = null
+                              }: LoadCategoriesProps): Promise<ProductCategory[]> {
+
     try {
         const query = `SELECT categorypage_id                        AS id,
                               page_title                             AS title,
@@ -30,20 +46,19 @@ async function loadCategories({ id = null, parentId = null, keyword = null }) {
                        WHERE (IFNULL(:id, '') = '' OR categorypage_id = :id)
                          AND (IFNULL(:parent_id, '') = '' OR parent_id = :parent_id)
                          AND (IFNULL(:keyword, '') = '' OR page_keyword = :keyword)`;
-        const data = { id, parentId, keyword };
-        const [rows] = await chums_local_modules_1.mysql2Pool.query(query, data);
+        const data = {id, parentId, keyword};
+        const [rows] = await mysql2Pool.query<ProductCategoryRow[]>(query, data);
         if (rows.length === 1) {
-            rows[0].children = await loadCategoryItems({ parentId: rows[0].id });
+            rows[0].children = await loadCategoryItems({parentId: rows[0].id});
         }
         return rows.map(row => {
-            const { children, ...rest } = row;
+            const {children, ...rest} = row;
             return {
                 ...rest,
                 children: children || [],
-            };
-        });
-    }
-    catch (err) {
+            }
+        })
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("loadCategories()", err.message);
             return Promise.reject(err);
@@ -52,13 +67,17 @@ async function loadCategories({ id = null, parentId = null, keyword = null }) {
         return Promise.reject(new Error('Error in loadCategories()'));
     }
 }
-exports.loadCategories = loadCategories;
-async function loadCategory({ keyword, id }) {
+
+interface LoadCategoryProps {
+    keyword?: string | null,
+    id?: string | number | null,
+}
+
+export async function loadCategory({keyword, id}: LoadCategoryProps): Promise<ProductCategory> {
     try {
-        const [category] = await loadCategories({ id, keyword });
+        const [category] = await loadCategories({id, keyword});
         return category;
-    }
-    catch (err) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("loadCategory()", err.message);
             return Promise.reject(err);
@@ -67,10 +86,13 @@ async function loadCategory({ keyword, id }) {
         return Promise.reject(new Error('Error in loadCategory()'));
     }
 }
-exports.loadCategory = loadCategory;
-async function addCategory(params) {
+
+async function addCategory(params: ProductCategory): Promise<ProductCategory> {
     try {
-        const { title, keyword, pageText = '', descriptionMeta = '', parentId = 0, status = 0, changefreq = 'n/a', priority = 0, lifestyle = '', css = '' } = params;
+        const {
+            title, keyword, pageText = '', descriptionMeta = '', parentId = 0, status = 0,
+            changefreq = 'n/a', priority = 0, lifestyle = '', css = ''
+        } = params;
         const query = `INSERT INTO b2b_oscommerce.category_pages
                        (page_title, page_keyword, page_text, page_description_meta, parent_id, status, changefreq,
                         priority,
@@ -87,12 +109,11 @@ async function addCategory(params) {
             status,
             changefreq,
             priority,
-            moreData: JSON.stringify({ lifestyle, css }),
+            moreData: JSON.stringify({lifestyle, css}),
         };
-        const [{ insertId }] = await chums_local_modules_1.mysql2Pool.query(query, data);
-        return await loadCategory({ id: insertId });
-    }
-    catch (err) {
+        const [{insertId}] = await mysql2Pool.query<ResultSetHeader>(query, data);
+        return await loadCategory({id: insertId});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("addCategory()", err.message);
             return Promise.reject(err);
@@ -101,12 +122,26 @@ async function addCategory(params) {
         return Promise.reject(new Error('Error in addCategory()'));
     }
 }
-async function updateCategory(params) {
+
+
+async function updateCategory(params): Promise<ProductCategory> {
     try {
         if (!params.id) {
-            return addCategory({ ...params });
+            return addCategory({...params});
         }
-        const { id, title, keyword, pageText, descriptionMeta, parentId, status, changefreq, priority, lifestyle, css } = params;
+        const {
+            id,
+            title,
+            keyword,
+            pageText,
+            descriptionMeta,
+            parentId,
+            status,
+            changefreq,
+            priority,
+            lifestyle,
+            css
+        } = params;
         const query = `UPDATE b2b_oscommerce.category_pages
                        SET page_title            = :title,
                            page_keyword          = :keyword,
@@ -127,13 +162,12 @@ async function updateCategory(params) {
             status,
             changefreq,
             priority,
-            moreData: JSON.stringify({ lifestyle, css }),
+            moreData: JSON.stringify({lifestyle, css}),
             id,
         };
-        await chums_local_modules_1.mysql2Pool.query(query, data);
-        return await loadCategory({ id });
-    }
-    catch (err) {
+        await mysql2Pool.query(query, data);
+        return await loadCategory({id});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("updateCategory()", err.message);
             return Promise.reject(err);
@@ -142,25 +176,25 @@ async function updateCategory(params) {
         return Promise.reject(new Error('Error in updateCategory()'));
     }
 }
+
 /**
  *
  * @param {number} id
  * @returns Promise
  */
-async function deleteCategory({ id }) {
+async function deleteCategory({id}) {
     try {
-        const items = await loadCategoryItems({ parentId: id });
+        const items = await loadCategoryItems({parentId: id});
         if (items.length) {
             return new Error('Cannot delete category while items exist');
         }
         const query = `DELETE
                        FROM b2b_oscommerce.category_pages
                        WHERE categorypage_id = :id`;
-        const data = { id };
-        await chums_local_modules_1.mysql2Pool.query(query, data);
+        const data = {id};
+        await mysql2Pool.query(query, data);
         return await loadCategories({});
-    }
-    catch (err) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("deleteCategory()", err.message);
             return Promise.reject(err);
@@ -169,116 +203,108 @@ async function deleteCategory({ id }) {
         return Promise.reject(new Error('Error in deleteCategory()'));
     }
 }
-async function getCategory(req, res) {
+
+export async function getCategory(req: Request, res: Response) {
     try {
         const category = await loadCategory(req.params);
-        res.json({ categories: [category] });
-    }
-    catch (err) {
+        res.json({categories: [category]});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getCategory()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in getCategory' });
+        res.json({error: 'unknown error in getCategory'});
     }
 }
-exports.getCategory = getCategory;
-async function getCategories(req, res) {
+
+export async function getCategories(req: Request, res: Response) {
     try {
         const categories = await loadCategories(req.params);
-        res.json({ categories });
-    }
-    catch (err) {
+        res.json({categories});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getCategories()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in getCategories' });
+        res.json({error: 'unknown error in getCategories'});
     }
 }
-exports.getCategories = getCategories;
-async function getCategoryItems(req, res) {
+
+export async function getCategoryItems(req: Request, res: Response) {
     try {
         const items = await loadCategoryItems(req.params);
-        res.json({ categoryItems: items });
-    }
-    catch (err) {
+        res.json({categoryItems: items});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getCategoryItems()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in getCategoryItems' });
+        res.json({error: 'unknown error in getCategoryItems'});
     }
 }
-exports.getCategoryItems = getCategoryItems;
-async function postCategory(req, res) {
+
+export async function postCategory(req: Request, res: Response) {
     try {
         const category = updateCategory(req.body);
-        res.json({ categories: [category] });
-    }
-    catch (err) {
+        res.json({categories: [category]});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postCategory()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in postCategory' });
+        res.json({error: 'unknown error in postCategory'});
     }
 }
-exports.postCategory = postCategory;
-async function delCategory(req, res) {
+
+export async function delCategory(req: Request, res: Response) {
     try {
-        const { id } = req.params;
-        const categories = await deleteCategory({ id });
-        res.json({ categories });
-    }
-    catch (err) {
+        const {id} = req.params;
+        const categories = await deleteCategory({id});
+        res.json({categories});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("delCategory()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in delCategory' });
+        res.json({error: 'unknown error in delCategory'});
     }
 }
-exports.delCategory = delCategory;
-async function postCategoryItem(req, res) {
+
+export async function postCategoryItem(req: Request, res: Response) {
     try {
         const items = await saveCategoryItem(req.body);
-        res.json({ items });
-    }
-    catch (err) {
+        res.json({items});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postCategoryItem()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in postCategoryItem' });
+        res.json({error: 'unknown error in postCategoryItem'});
     }
 }
-exports.postCategoryItem = postCategoryItem;
-async function postItemSort(req, res) {
+
+export async function postItemSort(req, res) {
     try {
-        const items = await updateCategoryItemSort({ ...req.params, items: req.body });
-        res.json({ items });
-    }
-    catch (err) {
+        const items = await updateCategoryItemSort({...req.params, items: req.body});
+        res.json({items});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postItemSort()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in postItemSort' });
+        res.json({error: 'unknown error in postItemSort'});
     }
 }
-exports.postItemSort = postItemSort;
-async function delCategoryItem(req, res) {
+
+export async function delCategoryItem(req: Request, res: Response) {
     try {
         const items = await deleteCategoryItem(req.params);
-        res.json({ items });
-    }
-    catch (err) {
+        res.json({items});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("deleteCategoryItem()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in deleteCategoryItem' });
+        res.json({error: 'unknown error in deleteCategoryItem'});
     }
 }
-exports.delCategoryItem = delCategoryItem;

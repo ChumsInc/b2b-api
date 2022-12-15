@@ -1,20 +1,55 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.postSetDefaultVariant = exports.postVariantSort = exports.delVariant = exports.postVariant = exports.getVariant = exports.getVariantsList = exports.getProductList = exports.postProduct = exports.getProduct = exports.saveProduct = exports.loadProduct = void 0;
-const debug_1 = __importDefault(require("debug"));
-const chums_local_modules_1 = require("chums-local-modules");
-const b2b_types_1 = require("b2b-types");
-const item_1 = require("./item");
-const mix_1 = require("./mix");
-const images_1 = require("./images");
-const debug = (0, debug_1.default)('chums:lib:product:v2:product');
+import Debug from 'debug';
+import {mysql2Pool} from 'chums-local-modules';
+import {
+    BasicProduct,
+    BooleanLike,
+    isSellAsColors,
+    isSellAsMix,
+    isSellAsVariants,
+    ProductListItem,
+    ProductVariant
+} from "b2b-types";
+import {ResultSetHeader, RowDataPacket} from "mysql2";
+import {Request, Response} from "express";
+import {loadProductItems} from "./item";
+import {saveMix} from "./mix";
+import {SellAsColorsProduct, SellAsMixProduct, SellAsSelfProduct, SellAsVariantsProduct} from "b2b-types/src/products";
+import {loadImages} from "./images";
+
+export type Product = BasicProduct | SellAsSelfProduct | SellAsVariantsProduct | SellAsMixProduct | SellAsColorsProduct;
+
+const debug = Debug('chums:lib:product:v2:product');
+
 const {} = require('./utils');
-const { loadMix } = require('./mix');
+const {loadMix} = require('./mix');
 const images = require('./images');
-async function loadList({ mfg = '%' }) {
+
+
+interface ProductListItemRow extends Omit<ProductListItem, 'redirectToParent'|'availableForSale' | 'status'>, RowDataPacket {
+    redirectToParent: BooleanLike,
+    availableForSale: BooleanLike,
+    status: BooleanLike,
+}
+
+interface ProductRow extends Omit<Product, 'availableForSale' | 'status' | 'canDome' | 'canScreenPrint' | 'redirectToParent' | 'additionalData' | 'season_available' | 'inactiveItem'>, RowDataPacket {
+    availableForSale: BooleanLike,
+    status: BooleanLike,
+    canDome: BooleanLike,
+    canScreenPrint: BooleanLike,
+    season_available: BooleanLike,
+    inactiveItem: BooleanLike,
+    redirectToParent: BooleanLike,
+    additionalData: string,
+}
+
+interface VariantRow extends Omit<ProductVariant, 'status' | 'isDefaultVariant'>, RowDataPacket {
+    status: BooleanLike,
+    isDefaultVariant: BooleanLike,
+    timestamp: string,
+}
+
+
+async function loadList({mfg = '%'}): Promise<ProductListItem[]> {
     try {
         const query = `SELECT p.products_id                   AS id,
                               pd.products_name                AS name,
@@ -91,18 +126,17 @@ async function loadList({ mfg = '%' }) {
                                       USING (product_season_id)
                        WHERE p.manufacturers_id LIKE :mfg
                        ORDER BY pd.products_name`;
-        const data = { mfg };
-        const [rows] = await chums_local_modules_1.mysql2Pool.query(query, data);
+        const data = {mfg};
+        const [rows] = await mysql2Pool.query<ProductListItemRow[]>(query, data);
         return rows.map(row => {
             return {
                 ...row,
                 redirectToParent: !!row.redirectToParent,
                 availableForSale: !!row.availableForSale,
                 status: !!row.status,
-            };
+            }
         });
-    }
-    catch (err) {
+    } catch (err) {
         if (err instanceof Error) {
             debug("loadList()", err.message);
             return Promise.reject(err);
@@ -111,8 +145,29 @@ async function loadList({ mfg = '%' }) {
         return Promise.reject(new Error('Error in loadList()'));
     }
 }
-function parseProductRow(row) {
-    const { status, availableForSale, canDome, canScreenPrint, QuantityAvailable, redirectToParent, additionalData, season_available, inactiveItem, product_season_id, season_active, ...rest } = row;
+
+interface LoadProductProps {
+    id?: string | number,
+    keyword?: string | number,
+    complete?: boolean,
+}
+
+function parseProductRow(row: ProductRow): Product {
+    const {
+        status,
+        availableForSale,
+        canDome,
+        canScreenPrint,
+        QuantityAvailable,
+        redirectToParent,
+        additionalData,
+        season_available,
+        inactiveItem,
+        product_season_id,
+        season_active,
+        ...rest
+    } = row;
+
     return {
         ...rest,
         product_season_id: product_season_id,
@@ -128,7 +183,8 @@ function parseProductRow(row) {
         season_active: !!product_season_id ? !!season_active : null
     };
 }
-async function loadProduct({ id, keyword, complete = false }) {
+
+export async function loadProduct({id, keyword, complete = false}: LoadProductProps): Promise<Product | undefined> {
     try {
         const query = `SELECT p.products_id                                     AS id,
                               p.products_model                                  AS itemCode,
@@ -204,30 +260,37 @@ async function loadProduct({ id, keyword, complete = false }) {
                                       ON s.product_season_id = p.product_season_id AND s.active = 1
                        WHERE p.products_id = :id
                           OR p.products_keyword = :keyword`;
-        const data = { id, keyword };
-        const [[productRow]] = await chums_local_modules_1.mysql2Pool.query(query, data);
+        const data = {id, keyword};
+        const [[productRow]] = await mysql2Pool.query<ProductRow[]>(query, data);
         if (!productRow) {
             return;
         }
+
         const product = parseProductRow(productRow);
-        product.images = await (0, images_1.loadImages)({ productId: product.id });
+        product.images = await loadImages({productId: product.id});
+
         if (product.product_season_id) {
             product.season_active = !!product.season_active;
         }
-        let variants = [];
+
+        let variants: ProductVariant[] = [];
         if (complete) {
-            variants = await loadVariants({ productId: productRow.id });
+            variants = await loadVariants({productId: productRow.id});
         }
-        if ((0, b2b_types_1.isSellAsMix)(product)) {
+        if (isSellAsMix(product)) {
             product.mix = await loadMix(product.id);
         }
-        if ((0, b2b_types_1.isSellAsColors)(product)) {
-            product.items = await (0, item_1.loadProductItems)({ productId: productRow.id });
+
+        if (isSellAsColors(product)) {
+            product.items = await loadProductItems({productId: productRow.id});
         }
-        if ((0, b2b_types_1.isSellAsVariants)(product)) {
+
+        if (isSellAsVariants(product)) {
             product.variants = variants;
         }
+
         return product;
+
         // let mix = checkSellAs(productRow.sellAs, SELL_AS.MIX) ? await loadMix(productRow.id) : null;
         // let items = checkSellAs(productRow.sellAs, SELL_AS.COLOR) ? await loadProductItems({productId: productRow.id}) : [];
         // let images = await loadImages({productId: productRow.id});
@@ -250,8 +313,7 @@ async function loadProduct({ id, keyword, complete = false }) {
         //     images
         //
         // }
-    }
-    catch (err) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("load()", err.message);
             return Promise.reject(err);
@@ -260,26 +322,31 @@ async function loadProduct({ id, keyword, complete = false }) {
         return Promise.reject(new Error('Error in load()'));
     }
 }
-exports.loadProduct = loadProduct;
-async function saveProduct(params) {
+
+
+export async function saveProduct(params: BasicProduct) {
     try {
-        let { id, keyword } = params;
+        let {id, keyword} = params;
         id = Number(id || 0);
         if (id === 0 && !keyword) {
             return Promise.reject(new Error('Keyword is required'));
         }
+
         if (id === 0) {
             id = await addProduct(params);
         }
-        const _product = await loadProduct({ id });
+        const _product = await loadProduct({id});
+
         // make sure that the keyword does not already exist if renaming a product keyword
         if (_product?.keyword !== keyword) {
-            const p2 = await loadProduct({ keyword });
+            const p2 = await loadProduct({keyword});
             if (p2) {
                 return Promise.reject(new Error(`Keyword '${keyword}' already exists.`));
             }
         }
-        const product = { ..._product, ...params, id };
+
+        const product: Product = {..._product, ...params, id};
+
         const query = `UPDATE b2b_oscommerce.products
                        SET products_keyword           = :keyword,
                            products_model             = :itemCode,
@@ -313,30 +380,31 @@ async function saveProduct(params) {
             ...product,
             additionalData: JSON.stringify(params.additionalData || {}),
         };
-        await chums_local_modules_1.mysql2Pool.query(query, data);
-        await chums_local_modules_1.mysql2Pool.query(queryDescription, data);
-        if ((0, b2b_types_1.isSellAsMix)(product)) {
+
+        await mysql2Pool.query(query, data);
+        await mysql2Pool.query(queryDescription, data);
+
+        if (isSellAsMix(product)) {
             if (!product.mix) {
-                const mix = await (0, mix_1.saveMix)({
+                const mix = await saveMix({
                     productId: product.id,
                     itemCode: params.itemCode,
                     mixName: params.name,
                     status: true,
                 });
                 if (mix) {
-                    product.mix = mix;
+                    product.mix = mix
                 }
             }
             if (product.mix && product.mix.itemCode !== product.itemCode) {
-                await (0, mix_1.saveMix)({
+                await saveMix({
                     ...product.mix,
                     itemCode: product.itemCode
                 });
             }
         }
-        return await loadProduct({ id, complete: true });
-    }
-    catch (err) {
+        return await loadProduct({id, complete: true});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("saveProduct()", err.message);
             return Promise.reject(err);
@@ -345,10 +413,10 @@ async function saveProduct(params) {
         return Promise.reject(new Error('Error in saveProduct()'));
     }
 }
-exports.saveProduct = saveProduct;
-async function addProduct({ keyword }) {
+
+async function addProduct({keyword}: { keyword: string }): Promise<number> {
     try {
-        const product = await loadProduct({ keyword });
+        const product = await loadProduct({keyword});
         if (product) {
             return Promise.reject(new Error(`Error: keyword '${keyword}' already exists`));
         }
@@ -356,13 +424,14 @@ async function addProduct({ keyword }) {
                                   (products_keyword, products_date_added)
                               VALUES (:keyword, NOW())`;
         const queryDescription = `INSERT INTO b2b_oscommerce.products_description (products_id) VALUES (:id)`;
-        const connection = await chums_local_modules_1.mysql2Pool.getConnection();
-        const [{ insertId }] = await connection.query(queryProduct, { keyword });
-        await connection.query(queryDescription, { id: insertId });
+
+        const connection = await mysql2Pool.getConnection();
+        const [{insertId}] = await connection.query<ResultSetHeader>(queryProduct, {keyword});
+        await connection.query<ResultSetHeader>(queryDescription, {id: insertId});
         connection.release();
+
         return insertId;
-    }
-    catch (err) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("addProduct()", err.message);
             return Promise.reject(err);
@@ -371,7 +440,13 @@ async function addProduct({ keyword }) {
         return Promise.reject(new Error('Error in addProduct()'));
     }
 }
-async function loadVariants({ productId, id }) {
+
+export interface LoadVariantsProps {
+    productId: string | number,
+    id?: string | number,
+}
+
+async function loadVariants({productId, id}: LoadVariantsProps): Promise<ProductVariant[]> {
     try {
         const query = `SELECT v.id,
                               v.productID                      AS parentProductID,
@@ -386,24 +461,25 @@ async function loadVariants({ productId, id }) {
                                        ON p.products_id = v.variantProductID
                        WHERE productId = :productId
                          AND (id = :id OR :id IS NULL)`;
-        const data = { productId, id };
-        const [rows] = await chums_local_modules_1.mysql2Pool.query(query, data);
+        const data = {productId, id};
+        const [rows] = await mysql2Pool.query<VariantRow[]>(query, data);
+
         const products = await Promise.all(rows.map(row => {
-            const { variantProductID } = row;
-            return loadProduct({ id: variantProductID });
+            const {variantProductID} = row;
+            return loadProduct({id: variantProductID});
         }));
+
         return rows
             .map(row => {
-            const [product] = products.filter(product => product?.id === row.variantProductID);
-            return {
-                ...row,
-                isDefaultVariant: !!row.isDefaultVariant,
-                status: !!row.status && !!product?.status,
-                product: product,
-            };
-        });
-    }
-    catch (err) {
+                const [product] = products.filter(product => product?.id === row.variantProductID);
+                return {
+                    ...row,
+                    isDefaultVariant: !!row.isDefaultVariant,
+                    status: !!row.status && !!product?.status,
+                    product: product,
+                }
+            })
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("loadVariants()", err.message);
             return Promise.reject(err);
@@ -412,9 +488,23 @@ async function loadVariants({ productId, id }) {
         return Promise.reject(new Error('Error in loadVariants()'));
     }
 }
-async function setDefaultVariant(params) {
+
+
+/**
+ * This will set the default variant for a product, and clear the flag from other variants of that product.
+ * @param {object} params
+ * @param {number} params.productId
+ * @param {number} params.variantId
+ */
+
+interface SetDefaultVariantProps {
+    productId: number | string,
+    variantId: number | string,
+}
+
+async function setDefaultVariant(params: SetDefaultVariantProps): Promise<ProductVariant[]> {
     try {
-        const { productId, variantId } = params;
+        const {productId, variantId} = params;
         if (!productId || !variantId) {
             return Promise.reject(new Error('Must have a valid productID and variantId'));
         }
@@ -425,11 +515,11 @@ async function setDefaultVariant(params) {
                                SET isDefaultVariant = 1
                                WHERE productID = :productId
                                  AND id = :variantId`;
-        await chums_local_modules_1.mysql2Pool.query(sqlClearDefault, { productId, variantId });
-        await chums_local_modules_1.mysql2Pool.query(sqlSetDefault, { productId, variantId });
-        return await loadVariants({ productId });
-    }
-    catch (err) {
+
+        await mysql2Pool.query(sqlClearDefault, {productId, variantId});
+        await mysql2Pool.query(sqlSetDefault, {productId, variantId});
+        return await loadVariants({productId});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("setDefaultVariant()", err.message);
             return Promise.reject(err);
@@ -438,20 +528,20 @@ async function setDefaultVariant(params) {
         return Promise.reject(new Error('Error in setDefaultVariant()'));
     }
 }
-async function saveNewVariant(variant) {
+
+async function saveNewVariant(variant: ProductVariant): Promise<ProductVariant> {
     try {
         if (!variant) {
             return Promise.reject(new Error('variant.js::saveNew() missing parameters'));
         }
-        const { parentProductID, variantProductID, title, status, priority } = variant;
+        const {parentProductID, variantProductID, title, status, priority} = variant;
         const sql = `INSERT INTO b2b_oscommerce.products_variants (productID, variantProductID, title, active, priority)
                      VALUES (:parentProductID, :variantProductID, :title, :active, :priority)`;
-        const args = { parentProductID, variantProductID, title, active: status, priority };
-        const [{ insertId }] = await chums_local_modules_1.mysql2Pool.query(sql, args);
-        const [_variant] = await loadVariants({ productId: parentProductID, id: insertId });
+        const args = {parentProductID, variantProductID, title, active: status, priority};
+        const [{insertId}] = await mysql2Pool.query<ResultSetHeader>(sql, args);
+        const [_variant] = await loadVariants({productId: parentProductID, id: insertId});
         return _variant;
-    }
-    catch (err) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("saveNew()", err.message);
             return Promise.reject(err);
@@ -460,26 +550,27 @@ async function saveNewVariant(variant) {
         return Promise.reject(new Error('Error in saveNew()'));
     }
 }
-async function saveVariant(variant) {
+
+async function saveVariant(variant: ProductVariant): Promise<ProductVariant> {
     try {
         if (!variant) {
             return Promise.reject(new Error('variant.js::save() missing parameters'));
         }
+
         if (!variant.id) {
             return saveNewVariant(variant);
         }
-        const { id, status, priority, title } = variant;
+        const {id, status, priority, title} = variant;
         const sql = `UPDATE b2b_oscommerce.products_variants
                      SET title    = :title,
                          active   = :status,
                          priority = :priority
                      WHERE id = :id`;
-        const args = { id, title, status, priority };
-        await chums_local_modules_1.mysql2Pool.query(sql, args);
-        const [_variant] = await loadVariants({ productId: variant.parentProductID, id: variant.id });
+        const args = {id, title, status, priority};
+        await mysql2Pool.query(sql, args);
+        const [_variant] = await loadVariants({productId: variant.parentProductID, id: variant.id});
         return _variant;
-    }
-    catch (err) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("save()", err.message);
             return Promise.reject(err);
@@ -488,18 +579,19 @@ async function saveVariant(variant) {
         return Promise.reject(new Error('Error in save()'));
     }
 }
-async function updateVariantSort(productId, variants) {
+
+async function updateVariantSort(productId: string | number, variants: Partial<ProductVariant>[]) {
     try {
         const sql = `UPDATE b2b_oscommerce.products_variants
                      SET priority = :priority
                      WHERE productID = :parentProductID
                        AND id = :id`;
-        for await (const variant of variants) {
-            await chums_local_modules_1.mysql2Pool.query(sql, variant);
+
+        for await(const variant of variants) {
+            await mysql2Pool.query(sql, variant);
         }
-        return loadVariants({ productId: productId });
-    }
-    catch (err) {
+        return loadVariants({productId: productId});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("updateVariantSort()", err.message);
             return Promise.reject(err);
@@ -508,13 +600,13 @@ async function updateVariantSort(productId, variants) {
         return Promise.reject(new Error('Error in updateVariantSort()'));
     }
 }
-async function deleteVariant(id) {
+
+async function deleteVariant(id: number | string): Promise<void> {
     try {
         const sql = `DELETE FROM b2b_oscommerce.products_variants WHERE id = :id`;
-        const args = { id };
-        await chums_local_modules_1.mysql2Pool.query(sql, args);
-    }
-    catch (err) {
+        const args = {id};
+        await mysql2Pool.query(sql, args);
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("deleteVariant()", err.message);
             return Promise.reject(err);
@@ -523,137 +615,131 @@ async function deleteVariant(id) {
         return Promise.reject(new Error('Error in deleteVariant()'));
     }
 }
-async function getProduct(req, res) {
+
+
+export async function getProduct(req: Request, res: Response) {
     try {
-        const { id, keyword } = req.params;
-        const product = await loadProduct({ id, keyword, complete: !!keyword });
+        const {id, keyword} = req.params;
+        const product = await loadProduct({id, keyword, complete: !!keyword});
         if (!product) {
-            return res.status(404).json({ error: 'product not found' });
+            return res.status(404).json({error: 'product not found'});
         }
-        res.json({ products: [product] });
-    }
-    catch (err) {
+        res.json({products: [product]});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getProduct()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in getProduct' });
+        res.json({error: 'unknown error in getProduct'});
     }
 }
-exports.getProduct = getProduct;
-async function postProduct(req, res) {
+
+
+export async function postProduct(req: Request, res: Response) {
     try {
         const params = {
             ...req.body,
         };
         const product = await saveProduct(params);
-        res.json({ product });
-    }
-    catch (err) {
+        res.json({product});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postProduct()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in postProduct' });
+        res.json({error: 'unknown error in postProduct'});
     }
 }
-exports.postProduct = postProduct;
-async function getProductList(req, res) {
+
+export async function getProductList(req: Request, res: Response) {
     try {
         const products = await loadList(req.params);
-        res.json({ products });
-    }
-    catch (err) {
+        res.json({products});
+    } catch (err) {
         if (err instanceof Error) {
             debug("loadList()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in loadList' });
+        res.json({error: 'unknown error in loadList'});
     }
 }
-exports.getProductList = getProductList;
-async function getVariantsList(req, res) {
+
+export async function getVariantsList(req: Request, res: Response) {
     try {
-        const { productId } = req.params;
-        const variants = await loadVariants({ productId });
-        res.json({ variants });
-    }
-    catch (err) {
+        const {productId} = req.params;
+        const variants = await loadVariants({productId});
+        res.json({variants});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getVariantsList()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in getVariantsList' });
+        res.json({error: 'unknown error in getVariantsList'});
     }
 }
-exports.getVariantsList = getVariantsList;
-async function getVariant(req, res) {
+
+export async function getVariant(req: Request, res: Response) {
     try {
-        const { productId, id } = req.params;
-        const [variant = null] = await loadVariants({ productId, id });
-        res.json({ variant });
-    }
-    catch (err) {
+        const {productId, id} = req.params;
+        const [variant = null] = await loadVariants({productId, id});
+        res.json({variant});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getVariant()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in getVariant' });
+        res.json({error: 'unknown error in getVariant'});
     }
 }
-exports.getVariant = getVariant;
-async function postVariant(req, res) {
+
+export async function postVariant(req: Request, res: Response) {
     try {
         const variant = await saveVariant(req.body);
-        res.json({ variant });
-    }
-    catch (err) {
+        res.json({variant});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postVariant()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in postVariant' });
+        res.json({error: 'unknown error in postVariant'});
     }
 }
-exports.postVariant = postVariant;
-async function delVariant(req, res) {
+
+export async function delVariant(req: Request, res: Response) {
     try {
-        const { productId, id } = req.params;
+        const {productId, id} = req.params;
         await deleteVariant(id);
-        const variants = await loadVariants({ productId });
-        res.json({ variants });
-    }
-    catch (err) {
+        const variants = await loadVariants({productId});
+        res.json({variants});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("delVariant()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in delVariant' });
+        res.json({error: 'unknown error in delVariant'});
     }
 }
-exports.delVariant = delVariant;
-async function postVariantSort(req, res) {
+
+export async function postVariantSort(req: Request, res: Response) {
     try {
-        const { productId } = req.params;
+        const {productId} = req.params;
         const variants = await updateVariantSort(productId, req.body);
-        res.json({ variants });
-    }
-    catch (err) {
+        res.json({variants});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postItemSort()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in postItemSort' });
+        res.json({error: 'unknown error in postItemSort'});
     }
 }
-exports.postVariantSort = postVariantSort;
-async function postSetDefaultVariant(req, res) {
+
+export async function postSetDefaultVariant(req: Request, res: Response) {
     try {
-        const { productId, id } = req.params;
-        const variants = await setDefaultVariant({ productId, variantId: id });
-        res.json({ variants });
-    }
-    catch (err) {
+        const {productId, id} = req.params;
+        const variants = await setDefaultVariant({productId, variantId: id});
+        res.json({variants});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postSetDefaultVariant()", err.message);
             return Promise.reject(err);
@@ -662,4 +748,3 @@ async function postSetDefaultVariant(req, res) {
         return Promise.reject(new Error('Error in postSetDefaultVariant()'));
     }
 }
-exports.postSetDefaultVariant = postSetDefaultVariant;

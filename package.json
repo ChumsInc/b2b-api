@@ -5,6 +5,12 @@
   "author": "steve montgomery <steve@chums.com>",
   "main": "bundle.js",
   "private": true,
+  "scripts": {
+    "start": "nodemon index.js",
+    "start-dev": "SET MYSQL_PORT=3307 && SET PORT=8001 && nodemon -L index.js",
+    "test": "mocha --reporter-option maxDiffSize=0",
+    "version": "auto-changelog -p && git add CHANGELOG.md"
+  },
   "dependencies": {
     "bcryptjs": "2.x",
     "body-parser": "^1.19.0",
@@ -22,14 +28,28 @@
     "x-frame-options": "1.0.x"
   },
   "devDependencies": {
-    "auto-changelog": "^2.4.0"
+    "@types/express": "^4.17.11",
+    "@types/node": "^17.0.31",
+    "auto-changelog": "^2.4.0",
+    "b2b-types": "github:UtahGooner/b2b-types",
+    "mocha": "^10.0.0",
+    "nodemon": "^2.0.16",
+    "typescript": "^4.7.3"
   },
   "auto-changelog": {
     "template": "keepachangelog",
     "unreleased": true,
     "commitLimit": false
   },
-  "scripts": {
-    "version": "auto-changelog -p && git add CHANGELOG.md"
+  "nodemonConfig": {
+    "ignore": [
+      "node_modules/*"
+    ],
+    "delay": 2500,
+    "watch": [
+      "src/**/*",
+      "views/**/*"
+    ],
+    "ext": "js,mjs,json,ts"
   }
 }

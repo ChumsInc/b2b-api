@@ -1,14 +1,24 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.delProductItem = exports.postProductItem = exports.getProductItems = exports.loadProductItems = void 0;
-const debug_1 = __importDefault(require("debug"));
-const chums_local_modules_1 = require("chums-local-modules");
-const debug = (0, debug_1.default)('chums:lib:product:v2:item');
-const { loadSeasons } = require('./seasons');
-async function loadProductItems({ id, productId, productIdList = [0] }) {
+import Debug from 'debug';
+import {mysql2Pool, PoolConnection} from 'chums-local-modules';
+import {ProductAdditionalData, ProductColorVariant} from "b2b-types";
+import {RowDataPacket} from "mysql2";
+import {Request, Response} from "express";
+
+const debug = Debug('chums:lib:product:v2:item');
+const {loadSeasons} = require('./seasons');
+
+interface ProductColorVariantRow extends Omit<ProductColorVariant, 'status'|'additionalData'|'inactiveItem'>, RowDataPacket {
+    status: 1|0,
+    inactiveItem: 1|0|null,
+    additionalData: string,
+}
+
+export interface LoadItemsProps {
+    id?: number|string,
+    productId?: number|string,
+    productIdList?: (number|string)[]
+}
+export async function loadProductItems({id, productId, productIdList = [0]}:LoadItemsProps):Promise<ProductColorVariant[]> {
     try {
         if (productId) {
             productIdList.push(productId);
@@ -54,15 +64,16 @@ async function loadProductItems({ id, productId, productIdList = [0] }) {
                                               AND ia.WarehouseCode = ci.DefaultWarehouseCode
                        WHERE (p.products_id IN (:productIdList) OR i.id = :id)
                        ORDER BY i.ItemCode`;
-        const data = { id, productIdList };
-        const [rows] = await chums_local_modules_1.mysql2Pool.query(query, data);
+        const data = {id, productIdList};
+
+        const [rows] = await mysql2Pool.query<ProductColorVariantRow[]>(query, data);
+
         const seasons = await loadSeasons({});
         return rows.map(row => {
-            let additionalData = {};
+            let additionalData:ProductAdditionalData = {};
             try {
                 additionalData = JSON.parse(row.additionalData);
-            }
-            catch (err) { }
+            } catch(err:unknown) {}
             if (additionalData.season_id) {
                 const [season] = seasons.filter(s => s.product_season_id === additionalData.season_id);
                 if (season.active) {
@@ -75,11 +86,10 @@ async function loadProductItems({ id, productId, productIdList = [0] }) {
                 status: !!row.status && !(!row.productType || row.productType === 'D' || row.inactiveItem === 1),
                 additionalData,
                 QuantityAvailable: Number(row.QuantityAvailable),
-                color: { id: row.colorsId, code: row.colorCode, name: row.colorName, swatchCode: additionalData.swatch_code || null },
-            };
-        });
-    }
-    catch (err) {
+                color: {id: row.colorsId, code: row.colorCode, name: row.colorName, swatchCode: additionalData.swatch_code || null},
+            }
+        })
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("loadProductItems()", err.message);
             return Promise.reject(err);
@@ -88,8 +98,12 @@ async function loadProductItems({ id, productId, productIdList = [0] }) {
         return Promise.reject(new Error('Error in loadItems()'));
     }
 }
-exports.loadProductItems = loadProductItems;
-async function saveNewProductItem({ productId, colorsId }) {
+
+interface ProductItemIDRow extends RowDataPacket {
+    id: number,
+}
+
+async function saveNewProductItem({productId, colorsId}:Partial<ProductColorVariant>):Promise<number> {
     try {
         const query = `INSERT IGNORE INTO b2b_oscommerce.products_items (productsID, colorsID, itemCode)
                        VALUES (:productId, :colorsId, '')`;
@@ -97,13 +111,15 @@ async function saveNewProductItem({ productId, colorsId }) {
                      FROM b2b_oscommerce.products_items
                      WHERE productsID = :productId
                        AND colorsID = :colorsId`;
-        const data = { productId, colorsId };
-        debug('saveNewProductItem()', { productId, colorsId });
-        await chums_local_modules_1.mysql2Pool.query(query, data);
-        const [[item]] = await chums_local_modules_1.mysql2Pool.query(qId, data);
+
+        const data = {productId, colorsId};
+        debug('saveNewProductItem()', {productId, colorsId});
+
+        await mysql2Pool.query(query, data);
+        const [[item]] = await mysql2Pool.query<ProductItemIDRow[]>(qId, data);
+
         return item.id;
-    }
-    catch (err) {
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("saveNewProductItem()", err.message);
             return Promise.reject(err);
@@ -112,10 +128,11 @@ async function saveNewProductItem({ productId, colorsId }) {
         return Promise.reject(new Error('Error in saveNewProductItem()'));
     }
 }
-async function saveProductItem({ id, productId, colorsId, colorCode, itemCode, status, additionalData }) {
+
+async function saveProductItem({id, productId, colorsId, colorCode, itemCode, status, additionalData}:ProductColorVariant) {
     try {
         if (Number(id) === 0) {
-            id = await saveNewProductItem({ productId, colorsId });
+            id = await saveNewProductItem({productId, colorsId});
         }
         const query = `UPDATE b2b_oscommerce.products_items
                        SET colorCode      = :colorCode,
@@ -123,11 +140,10 @@ async function saveProductItem({ id, productId, colorsId, colorCode, itemCode, s
                            active         = :status,
                            additionalData = :additionalData
                        WHERE id = :id`;
-        const data = { id, colorCode, itemCode, status, additionalData: JSON.stringify(additionalData) };
-        await chums_local_modules_1.mysql2Pool.query(query, data);
-        return await loadProductItems({ productId });
-    }
-    catch (err) {
+        const data = {id, colorCode, itemCode, status, additionalData: JSON.stringify(additionalData)};
+        await mysql2Pool.query(query, data);
+        return await loadProductItems({productId});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("saveProductItem()", err.message);
             return Promise.reject(err);
@@ -136,14 +152,14 @@ async function saveProductItem({ id, productId, colorsId, colorCode, itemCode, s
         return Promise.reject(new Error('Error in saveProductItem()'));
     }
 }
-async function deleteProductItem({ id, productId }) {
+
+async function deleteProductItem({id, productId}:Partial<ProductColorVariant>):Promise<ProductColorVariant[]> {
     try {
         const query = `DELETE FROM b2b_oscommerce.products_items WHERE id = :id AND productsID = :productId`;
-        const data = { id, productId };
-        await chums_local_modules_1.mysql2Pool.query(query, data);
-        return await loadProductItems({ productId });
-    }
-    catch (err) {
+        const data = {id, productId};
+        await mysql2Pool.query(query, data);
+        return await loadProductItems({productId});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("deleteItem()", err.message);
             return Promise.reject(err);
@@ -152,46 +168,45 @@ async function deleteProductItem({ id, productId }) {
         return Promise.reject(new Error('Error in deleteItem()'));
     }
 }
-async function getProductItems(req, res) {
+
+export async function getProductItems(req:Request, res:Response) {
     try {
-        const { productId, id } = req.params;
-        const items = await loadProductItems({ id, productId });
-        res.json({ items });
-    }
-    catch (err) {
+        const {productId, id} = req.params;
+        const items = await loadProductItems({id, productId});
+        res.json({items});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getItems()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in getItems' });
+        res.json({error: 'unknown error in getItems'});
     }
 }
-exports.getProductItems = getProductItems;
-async function postProductItem(req, res) {
+
+export async function postProductItem(req:Request, res:Response) {
     try {
         const items = await saveProductItem(req.body);
-        res.json({ items });
-    }
-    catch (err) {
+        res.json({items});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("postItem()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in postItem' });
+        res.json({error: 'unknown error in postItem'});
     }
 }
-exports.postProductItem = postProductItem;
-async function delProductItem(req, res) {
+
+export async function delProductItem(req:Request, res:Response) {
     try {
         const items = await deleteProductItem(req.params);
-        res.json({ items });
-    }
-    catch (err) {
+        res.json({items});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("delProductItem()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in delProductItem' });
+        res.json({error: 'unknown error in delProductItem'});
     }
 }
-exports.delProductItem = delProductItem;
+
+

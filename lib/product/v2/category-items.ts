@@ -1,33 +1,35 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteCategoryItem = exports.updateCategoryItemSort = exports.saveCategoryItem = exports.loadCategoryItems = exports.loadCategoryItemComponents = void 0;
-const debug_1 = __importDefault(require("debug"));
-const chums_local_modules_1 = require("chums-local-modules");
-const debug = (0, debug_1.default)('chums:lib:product:v2:category-items');
-const { loadProduct } = require('./product');
-const { loadCategories } = require('./category');
-async function loadCategoryItemComponents(row) {
+import Debug from 'debug';
+import {mysql2Pool} from 'chums-local-modules';
+import {ProductCategoryChild} from "b2b-types";
+import {ResultSetHeader, RowDataPacket} from "mysql2";
+
+const debug = Debug('chums:lib:product:v2:category-items');
+const {loadProduct} = require('./product');
+const {loadCategories} = require('./category');
+
+interface CategoryItemRow extends ProductCategoryChild, RowDataPacket {
+}
+
+export async function loadCategoryItemComponents(row: ProductCategoryChild): Promise<ProductCategoryChild> {
     try {
         if (row.productsId) {
-            const product = await loadProduct({ id: row.productsId });
+            const product = await loadProduct({id: row.productsId});
             return {
                 ...row,
                 product,
-            };
+            }
         }
+
         if (row.categoriesId) {
-            const [category] = await loadCategories({ id: row.categoriesId });
+            const [category] = await loadCategories({id: row.categoriesId});
             return {
                 ...row,
                 category,
-            };
+            }
         }
+
         return row;
-    }
-    catch (err) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("loadComponents()", err.message);
             return Promise.reject(err);
@@ -36,8 +38,18 @@ async function loadCategoryItemComponents(row) {
         return Promise.reject(new Error('Error in loadComponents()'));
     }
 }
-exports.loadCategoryItemComponents = loadCategoryItemComponents;
-async function loadCategoryItems({ id = null, parentId = null, keyword }) {
+
+export interface LoadCategoryItemsProps {
+    id?: number | string | null,
+    parentId?: number | string | null,
+    keyword?: string | null,
+}
+
+export async function loadCategoryItems({
+                                            id = null,
+                                            parentId = null,
+                                            keyword
+                                        }: LoadCategoryItemsProps): Promise<ProductCategoryChild[]> {
     try {
         const query = `SELECT item_id             AS id,
                               categorypage_id     AS parentId,
@@ -64,11 +76,12 @@ async function loadCategoryItems({ id = null, parentId = null, keyword }) {
                            LIMIT 1
                            ))
                        ORDER BY priority`;
-        const data = { id, parentId, keyword };
-        const [rows] = await chums_local_modules_1.mysql2Pool.query(query, data);
+        const data = {id, parentId, keyword};
+
+        const [rows] = await mysql2Pool.query<CategoryItemRow[]>(query, data);
+
         return await Promise.all(rows.map(row => loadCategoryItemComponents(row)));
-    }
-    catch (err) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("loadItems()", err.message);
             return Promise.reject(err);
@@ -77,8 +90,9 @@ async function loadCategoryItems({ id = null, parentId = null, keyword }) {
         return Promise.reject(new Error('Error in loadItems()'));
     }
 }
-exports.loadCategoryItems = loadCategoryItems;
-async function saveNewCategoryItem({ ...body }) {
+
+
+async function saveNewCategoryItem({...body}: ProductCategoryChild): Promise<ProductCategoryChild> {
     try {
         const query = `INSERT INTO b2b_oscommerce.category_pages_items
                        (categorypage_id, itemType, section_title, section_description,
@@ -88,12 +102,12 @@ async function saveNewCategoryItem({ ...body }) {
                        VALUES (:parentId, :itemType, :sectionTitle, :sectionDescription, :title, :description,
                                :urlOverride, :className, :imageUrl, :productsId, :categoriesId, :priority,
                                :status)`;
-        const data = { ...body };
-        const [{ insertId }] = await chums_local_modules_1.mysql2Pool.query(query, data);
-        const [item] = await loadCategoryItems({ id: insertId });
+        const data = {...body};
+
+        const [{insertId}] = await mysql2Pool.query<ResultSetHeader>(query, data);
+        const [item] = await loadCategoryItems({id: insertId});
         return item;
-    }
-    catch (err) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("saveNewItem()", err.message);
             return Promise.reject(err);
@@ -102,10 +116,11 @@ async function saveNewCategoryItem({ ...body }) {
         return Promise.reject(new Error('Error in saveNewItem()'));
     }
 }
-async function saveCategoryItem({ ...body }) {
+
+export async function saveCategoryItem({...body}: ProductCategoryChild): Promise<ProductCategoryChild> {
     try {
         if (!body.id) {
-            return saveNewCategoryItem({ ...body });
+            return saveNewCategoryItem({...body});
         }
         const query = `UPDATE b2b_oscommerce.category_pages_items
                        SET categorypage_id     = :parentId,
@@ -122,12 +137,12 @@ async function saveCategoryItem({ ...body }) {
                            priority            = :priority,
                            status              = :status
                        WHERE item_id = :id`;
-        const data = { ...body };
-        await chums_local_modules_1.mysql2Pool.query(query, data);
-        const [item] = await loadCategoryItems({ id: body.id });
+        const data = {...body};
+
+        await mysql2Pool.query(query, data);
+        const [item] = await loadCategoryItems({id: body.id});
         return item;
-    }
-    catch (err) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("saveItem()", err.message);
             return Promise.reject(err);
@@ -136,18 +151,26 @@ async function saveCategoryItem({ ...body }) {
         return Promise.reject(new Error('Error in saveItem()'));
     }
 }
-exports.saveCategoryItem = saveCategoryItem;
-async function updateCategoryItemSort({ parentId, items = [] }) {
+
+
+export interface UpdateCategoryItemSortProps {
+    parentId: string | number,
+    items: {
+        id: number,
+        priority: number
+    }[]
+}
+
+export async function updateCategoryItemSort({parentId, items = []}: UpdateCategoryItemSortProps) {
     try {
         const query = `UPDATE b2b_oscommerce.category_pages_items SET priority = :priority WHERE item_id = :id`;
-        const connection = await chums_local_modules_1.mysql2Pool.getConnection();
+        const connection = await mysql2Pool.getConnection();
         await Promise.all(items.map(item => {
-            return connection.query(query, { ...item });
+            return connection.query(query, {...item});
         }));
         connection.release();
-        return await loadCategoryItems({ parentId });
-    }
-    catch (err) {
+        return await loadCategoryItems({parentId});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("updateItemSort()", err.message);
             return Promise.reject(err);
@@ -156,17 +179,21 @@ async function updateCategoryItemSort({ parentId, items = [] }) {
         return Promise.reject(new Error('Error in updateItemSort()'));
     }
 }
-exports.updateCategoryItemSort = updateCategoryItemSort;
-async function deleteCategoryItem({ id, parentId }) {
+
+export interface DeleteCategoryItemProps {
+    id: number | string,
+    parentId: number | string,
+}
+
+export async function deleteCategoryItem({id, parentId}: DeleteCategoryItemProps): Promise<ProductCategoryChild[]> {
     try {
         const query = `DELETE
                        FROM b2b_oscommerce.category_pages_items
                        WHERE item_id = :id`;
-        const data = { id };
-        await chums_local_modules_1.mysql2Pool.query(query, data);
-        return await loadCategoryItems({ parentId });
-    }
-    catch (err) {
+        const data = {id};
+        await mysql2Pool.query(query, data);
+        return await loadCategoryItems({parentId});
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("deleteItem()", err.message);
             return Promise.reject(err);
@@ -175,4 +202,3 @@ async function deleteCategoryItem({ id, parentId }) {
         return Promise.reject(new Error('Error in deleteItem()'));
     }
 }
-exports.deleteCategoryItem = deleteCategoryItem;

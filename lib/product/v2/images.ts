@@ -1,13 +1,20 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.getImagesForProducts = exports.delImage = exports.postImage = exports.getImage = exports.getImages = exports.loadImages = void 0;
-const debug_1 = __importDefault(require("debug"));
-const chums_local_modules_1 = require("chums-local-modules");
-const debug = (0, debug_1.default)('chums:lib:product:v2:images');
-async function loadImages({ id, productId, productIdList = [] }) {
+import Debug from 'debug';
+import {mysql2Pool} from 'chums-local-modules';
+import {ProductAlternateImage} from "b2b-types";
+import {ResultSetHeader, RowDataPacket} from "mysql2";
+import {NextFunction, Request, Response} from "express";
+
+const debug = Debug('chums:lib:product:v2:images');
+
+interface ProductAlternateImageRow extends ProductAlternateImage, RowDataPacket {}
+
+
+export interface LoadImagesProps {
+    id?: string|number,
+    productId?: number|string,
+    productIdList?: (string|number)[],
+}
+export async function loadImages({id, productId, productIdList = []}:LoadImagesProps):Promise<ProductAlternateImage[]> {
     try {
         if (productId) {
             productIdList.push(productId);
@@ -23,11 +30,10 @@ async function loadImages({ id, productId, productIdList = [] }) {
                        WHERE productID IN (:productIdList)
                           OR id = :id
                        ORDER BY priority`;
-        const data = { id, productIdList };
-        const [images] = await chums_local_modules_1.mysql2Pool.query(query, data);
+        const data = {id, productIdList};
+        const [images] = await mysql2Pool.query<ProductAlternateImageRow[]>(query, data);
         return images;
-    }
-    catch (err) {
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("loadImages()", err.message);
             return Promise.reject(err);
@@ -36,11 +42,12 @@ async function loadImages({ id, productId, productIdList = [] }) {
         return Promise.reject(new Error('Error in loadImages()'));
     }
 }
-exports.loadImages = loadImages;
-async function saveImage({ id, productId, image, altText, priority, status }) {
+
+
+async function saveImage({id, productId, image, altText, priority, status}:ProductAlternateImage):Promise<ProductAlternateImage[]> {
     try {
         if (Number(id || 0) === 0) {
-            id = await addImage({ productId, image });
+            id = await addImage({productId, image});
         }
         const query = `UPDATE b2b_oscommerce.products_images
                        SET image       = :image,
@@ -48,11 +55,10 @@ async function saveImage({ id, productId, image, altText, priority, status }) {
                            priority    = :priority,
                            status      = :status
                        WHERE id = :id`;
-        const data = { id, image, altText, priority, status };
-        await chums_local_modules_1.mysql2Pool.query(query, data);
-        return await loadImages({ productId });
-    }
-    catch (err) {
+        const data = {id, image, altText, priority, status};
+        await mysql2Pool.query(query, data);
+        return await loadImages({productId});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("saveImage()", err.message);
             return Promise.reject(err);
@@ -61,15 +67,15 @@ async function saveImage({ id, productId, image, altText, priority, status }) {
         return Promise.reject(new Error('Error in saveImage()'));
     }
 }
-async function addImage({ productId, image }) {
+
+async function addImage({productId, image}:Partial<ProductAlternateImage>):Promise<number> {
     try {
         const query = `INSERT INTO b2b_oscommerce.products_images (productID, image)
                        VALUES (:productId, :image)`;
-        const data = { productId, image };
-        const [{ insertId }] = await chums_local_modules_1.mysql2Pool.query(query, data);
+        const data = {productId, image};
+        const [{insertId}] = await mysql2Pool.query<ResultSetHeader>(query, data);
         return insertId;
-    }
-    catch (err) {
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("addImage()", err.message);
             return Promise.reject(err);
@@ -78,16 +84,20 @@ async function addImage({ productId, image }) {
         return Promise.reject(new Error('Error in addImage()'));
     }
 }
-async function deleteImage({ id, productId }) {
+
+export interface DeleteImageProps {
+    id: string|number,
+    productId: string|number,
+}
+async function deleteImage({id, productId}:DeleteImageProps):Promise<ProductAlternateImage[]> {
     try {
         const query = `DELETE FROM b2b_oscommerce.products_images WHERE id = :id AND productID = :productId`;
-        const data = { id, productId };
-        const connection = await chums_local_modules_1.mysql2Pool.getConnection();
+        const data = {id, productId};
+        const connection = await mysql2Pool.getConnection();
         await connection.query(query, data);
         connection.release();
-        return await loadImages({ productId });
-    }
-    catch (err) {
+        return await loadImages({productId});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("deleteImage()", err.message);
             return Promise.reject(err);
@@ -96,81 +106,76 @@ async function deleteImage({ id, productId }) {
         return Promise.reject(new Error('Error in deleteImage()'));
     }
 }
-async function getImages(req, res) {
+
+export async function getImages(req:Request, res:Response) {
     try {
         const images = await loadImages(req.params);
-        res.json({ images });
-    }
-    catch (err) {
+        res.json({images});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getImages()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in getImages' });
+        res.json({error: 'unknown error in getImages'});
     }
 }
-exports.getImages = getImages;
-async function getImage(req, res) {
+
+export async function getImage(req:Request, res:Response) {
     try {
-        const params = { ...req.params, ...req.query };
+        const params = {...req.params, ...req.query};
         const [image] = await loadImages(params);
-        res.json({ image: image || null });
-    }
-    catch (err) {
+        res.json({image: image || null});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getImage()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in getImage' });
+        res.json({error: 'unknown error in getImage'});
     }
 }
-exports.getImage = getImage;
-async function postImage(req, res) {
+
+export async function postImage(req:Request, res:Response) {
     try {
         const images = await saveImage(req.body);
-        res.json({ images });
-    }
-    catch (err) {
+        res.json({images});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("postImage()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in postImage' });
+        res.json({error: 'unknown error in postImage'});
     }
 }
-exports.postImage = postImage;
-async function delImage(req, res) {
+
+export async function delImage(req:Request, res:Response) {
     try {
-        const { id, productId } = req.params;
-        const images = await deleteImage({ id, productId });
-        res.json({ images });
-    }
-    catch (err) {
+        const {id, productId} = req.params;
+        const images = await deleteImage({id, productId});
+        res.json({images});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("delImage()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in delImage' });
+        res.json({error: 'unknown error in delImage'});
     }
 }
-exports.delImage = delImage;
-async function getImagesForProducts(req, res, next) {
+
+export async function getImagesForProducts(req:Request, res:Response, next:NextFunction) {
     try {
         const products = res.locals.response.products || [];
         const productIdList = products.map(p => p.id);
-        const images = await loadImages({ productIdList });
+        const images = await loadImages({productIdList});
         products.forEach(product => {
             product.images = images.filter(img => img.productId === product.id);
         });
         res.locals.products = products;
         next();
-    }
-    catch (err) {
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getImagesForProducts()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in getImagesForProducts' });
+        res.json({error: 'unknown error in getImagesForProducts'});
     }
 }
-exports.getImagesForProducts = getImagesForProducts;

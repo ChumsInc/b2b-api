@@ -1,13 +1,26 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.postColor = exports.getMixItems = exports.getItems = exports.getColors = void 0;
-const debug_1 = __importDefault(require("debug"));
-const chums_local_modules_1 = require("chums-local-modules");
-const debug = (0, debug_1.default)('chums:lib:product:v2:colors');
-async function loadColors({ id = null, code = null }) {
+import Debug from 'debug';
+import {mysql2Pool} from 'chums-local-modules';
+import {ColorProductUsage, ProductColor} from "b2b-types";
+import {ResultSetHeader, RowDataPacket} from "mysql2";
+import {Request, Response} from "express";
+
+const debug = Debug('chums:lib:product:v2:colors');
+
+
+interface ProductColorRow extends Omit<ProductColor, 'active'>, RowDataPacket {
+    active: 1|0|null,
+}
+
+interface ColorProductUsageRow extends Omit<ColorProductUsage, 'status'>, RowDataPacket {
+    status: 1|0,
+}
+
+
+interface LoadColorsProps {
+    id?: string|number|null,
+    code?:string|null,
+}
+async function loadColors({id = null, code = null}:LoadColorsProps):Promise<ProductColor[]> {
     try {
         const query = `SELECT c.colors_id  AS id,
                               c.color_code AS code,
@@ -19,16 +32,15 @@ async function loadColors({ id = null, code = null }) {
                        WHERE (ifnull(:id, '') = '' OR colors_id = :id)
                          AND (IFNULL(:code, '') = '' OR color_code = :code)
                        ORDER BY code`;
-        const data = { id, code };
-        const [rows] = await chums_local_modules_1.mysql2Pool.query(query, data);
+        const data = {id, code};
+        const [rows] = await mysql2Pool.query<ProductColorRow[]>(query, data);
         return rows.map(row => {
             return {
                 ...row,
                 active: row.active === null ? null : !!row.active
-            };
-        });
-    }
-    catch (err) {
+            }
+        })
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("loadColors()", err.message);
             return Promise.reject(err);
@@ -37,7 +49,8 @@ async function loadColors({ id = null, code = null }) {
         return Promise.reject(new Error('Error in loadColors()'));
     }
 }
-async function saveColor({ id, code, name }) {
+
+async function saveColor({id, code, name}:Partial<ProductColor>):Promise<ProductColor[]> {
     try {
         const colors = await loadColors({});
         const [color] = colors.filter(color => color.code === code);
@@ -50,17 +63,18 @@ async function saveColor({ id, code, name }) {
                              SET color_code = :code,
                                  color_name = :name
                              WHERE colors_id = :id`;
-        const data = { id, code, name };
+        const data = {id, code, name};
+
+
         if (!id || Number(id) === 0) {
-            const [{ insertId }] = await chums_local_modules_1.mysql2Pool.query(queryInsert, data);
+            const [{insertId}] = await mysql2Pool.query<ResultSetHeader>(queryInsert, data);
             id = insertId;
+        } else {
+            await mysql2Pool.query(queryUpdate, data);
         }
-        else {
-            await chums_local_modules_1.mysql2Pool.query(queryUpdate, data);
-        }
-        return await loadColors({ id });
-    }
-    catch (err) {
+
+        return await loadColors({id});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("saveColor()", err.message);
             return Promise.reject(err);
@@ -69,7 +83,8 @@ async function saveColor({ id, code, name }) {
         return Promise.reject(new Error('Error in saveColor()'));
     }
 }
-async function loadColorUsage(id) {
+
+async function loadColorUsage(id:number|string):Promise<ColorProductUsage[]> {
     try {
         const query = `SELECT p.products_id                                                 AS productId,
                               p.products_keyword                                            AS keyword,
@@ -98,11 +113,11 @@ async function loadColorUsage(id) {
                                       ON ci.company = m.company AND ci.ItemCode = i.itemCode
                        WHERE i.colorsID = :id
                        ORDER BY itemCode `;
-        const data = { id };
-        const [rows] = await chums_local_modules_1.mysql2Pool.query(query, data);
-        return rows.map(row => ({ ...row, status: !!row.status }));
-    }
-    catch (err) {
+        const data = {id};
+
+        const [rows] = await mysql2Pool.query<ColorProductUsageRow[]>(query, data);
+        return rows.map(row => ({...row, status: !!row.status}));
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("loadColorUsage()", err.message);
             return Promise.reject(err);
@@ -111,7 +126,8 @@ async function loadColorUsage(id) {
         return Promise.reject(new Error('Error in loadColorUsage()'));
     }
 }
-async function loadMixUsage(id) {
+
+async function loadMixUsage(id:number|string):Promise<ColorProductUsage[]> {
     try {
         const query = `SELECT p.products_id      AS productId,
                               p.products_keyword AS keyword,
@@ -140,11 +156,11 @@ async function loadMixUsage(id) {
                                       ON ci.Company = mfg.Company AND ci.ItemCode = m.itemCode
                        WHERE md.colorsID = :id
                        ORDER BY m.itemCode`;
-        const data = { id };
-        const [rows] = await chums_local_modules_1.mysql2Pool.query(query, data);
-        return rows.map(row => ({ ...row, status: !!row.status }));
-    }
-    catch (err) {
+        const data = {id};
+
+        const [rows] = await mysql2Pool.query<ColorProductUsageRow[]>(query, data);
+        return rows.map(row => ({...row, status: !!row.status}));
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("loadMixUsage()", err.message);
             return Promise.reject(err);
@@ -153,60 +169,56 @@ async function loadMixUsage(id) {
         return Promise.reject(new Error('Error in loadMixUsage()'));
     }
 }
-async function getColors(req, res) {
+
+export async function getColors(req:Request, res:Response) {
     try {
         const colors = await loadColors(req.params);
-        res.json({ colors });
-    }
-    catch (err) {
+        res.json({colors});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getColors()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in getColors' });
+        res.json({error: 'unknown error in getColors'});
     }
 }
-exports.getColors = getColors;
-async function getItems(req, res) {
+
+export async function getItems(req:Request, res:Response) {
     try {
         const items = await loadColorUsage(req.params.id);
-        res.json({ items });
-    }
-    catch (err) {
+        res.json({items});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getItems()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in getItems' });
+        res.json({error: 'unknown error in getItems'});
     }
 }
-exports.getItems = getItems;
-async function getMixItems(req, res) {
+
+export async function getMixItems(req:Request, res:Response) {
     try {
         const items = await loadMixUsage(req.params.id);
-        res.json({ items });
-    }
-    catch (err) {
+        res.json({items});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getMixItems()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in getMixItems' });
+        res.json({error: 'unknown error in getMixItems'});
     }
 }
-exports.getMixItems = getMixItems;
-async function postColor(req, res) {
+
+export async function postColor(req:Request, res:Response) {
     try {
         const [color] = await saveColor(req.body);
         const colors = await loadColors({});
-        res.json({ colors, color });
-    }
-    catch (err) {
+        res.json({colors, color});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("postColor()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in postColor' });
+        res.json({error: 'unknown error in postColor'});
     }
 }
-exports.postColor = postColor;

@@ -1,13 +1,23 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.postSeason = exports.getSeasons = exports.saveSeason = exports.loadSeasons = void 0;
-const debug_1 = __importDefault(require("debug"));
-const chums_local_modules_1 = require("chums-local-modules");
-const debug = (0, debug_1.default)('chums:lib:product:v2:seasons');
-async function loadSeasons({ id, code }) {
+import Debug from 'debug';
+import {mysql2Pool} from 'chums-local-modules';
+import {ProductSeason} from "b2b-types";
+import {ResultSetHeader, RowDataPacket} from "mysql2";
+import {Request, Response} from "express";
+
+const debug = Debug('chums:lib:product:v2:seasons');
+
+export interface ProductSeasonRow extends Omit<ProductSeason, 'active'|'properties'|'product_available'>, RowDataPacket {
+    active: 1|0,
+    properties?: string|null,
+    product_available: 1|0,
+}
+
+export interface LoadSeasonsProps {
+    id?: number,
+    code?: string,
+}
+
+export async function loadSeasons({id, code}:LoadSeasonsProps):Promise<ProductSeason[]> {
     try {
         const query = `SELECT product_season_id,
                               ps.code,
@@ -22,22 +32,20 @@ async function loadSeasons({ id, code }) {
                                       ON pms.code = ps.code
                        WHERE (IFNULL(:id, 0) = 0 OR product_season_id = :id)
                          AND (IFNULL(:code, '') = '' OR ps.code = :code)`;
-        const [rows] = await chums_local_modules_1.mysql2Pool.query(query, { id, code });
+        const [rows] = await mysql2Pool.query<ProductSeasonRow[]>(query, {id, code});
         return rows.map(row => {
             let properties = {};
             try {
                 properties = JSON.parse(row.properties || '{}');
-            }
-            catch (err) { }
+            } catch(err:unknown) {}
             return {
                 ...row,
                 active: !!row.active,
                 product_available: !!row.product_available,
                 properties,
-            };
-        });
-    }
-    catch (err) {
+            }
+        })
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("loadSeasons()", err.message);
             return Promise.reject(err);
@@ -46,8 +54,15 @@ async function loadSeasons({ id, code }) {
         return Promise.reject(new Error('Error in loadSeasons()'));
     }
 }
-exports.loadSeasons = loadSeasons;
-async function saveSeason({ product_season_id, code, description = '', product_available = false, product_teaser = '', active = true }) {
+
+export async function saveSeason({
+                              product_season_id,
+                              code,
+                              description = '',
+                              product_available = false,
+                              product_teaser = '',
+                              active = true
+                          }:ProductSeason):Promise<ProductSeason[]> {
     try {
         let id = product_season_id || 0;
         const queryInsert = `INSERT INTO b2b_oscommerce.product_seasons (code, description, product_available, product_teaser, active)
@@ -59,17 +74,15 @@ async function saveSeason({ product_season_id, code, description = '', product_a
                                  product_teaser    = :product_teaser,
                                  active            = :active
                              WHERE product_season_id = :product_season_id`;
-        const args = { product_season_id, code, description, product_available, product_teaser, active };
+        const args = {product_season_id, code, description, product_available, product_teaser, active};
         if (!product_season_id) {
-            const [{ insertId }] = await chums_local_modules_1.mysql2Pool.query(queryInsert, args);
+            const [{insertId}] = await mysql2Pool.query<ResultSetHeader>(queryInsert, args);
             id = insertId;
+        } else {
+            await mysql2Pool.query(queryUpdate, args);
         }
-        else {
-            await chums_local_modules_1.mysql2Pool.query(queryUpdate, args);
-        }
-        return await loadSeasons({ id });
-    }
-    catch (err) {
+        return await loadSeasons({id});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("saveSeason()", err.message);
             return Promise.reject(err);
@@ -78,33 +91,32 @@ async function saveSeason({ product_season_id, code, description = '', product_a
         return Promise.reject(new Error('Error in saveSeason()'));
     }
 }
-exports.saveSeason = saveSeason;
-async function getSeasons(req, res) {
+
+
+
+export async function getSeasons(req:Request, res:Response) {
     try {
         const seasons = await loadSeasons(req.params);
-        res.json({ seasons });
-    }
-    catch (err) {
+        res.json({seasons});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getSeasons()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in getSeasons' });
+        res.json({error: 'unknown error in getSeasons'});
     }
 }
-exports.getSeasons = getSeasons;
-async function postSeason(req, res) {
+
+export async function postSeason(req, res) {
     try {
-        const { season: params } = req.body;
+        const {season: params} = req.body;
         const [season] = await saveSeason(params);
-        res.json({ season });
-    }
-    catch (err) {
+        res.json({season});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("postSeason()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in postSeason' });
+        res.json({error: 'unknown error in postSeason'});
     }
 }
-exports.postSeason = postSeason;
