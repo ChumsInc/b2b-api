@@ -1,7 +1,7 @@
 {
   "name": "b2b-api",
   "description": "Chums B2B API",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "author": "steve montgomery <steve@chums.com>",
   "main": "bundle.js",
   "private": true,
