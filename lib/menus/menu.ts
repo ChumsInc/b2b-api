@@ -41,10 +41,10 @@ const loadParentMenuList = async (id:number|string):Promise<number[]> => {
         return [id, ...parents];
     } catch(err:unknown) {
         if (err instanceof Error) {
-            console.debug("loadParentMenuList()", err.message);
+            debug("loadParentMenuList()", err.message);
             return Promise.reject(err);
         }
-        console.debug("loadParentMenuList()", err);
+        debug("loadParentMenuList()", err);
         return Promise.reject(new Error('Error in loadParentMenuList()'));
     }
 };
@@ -67,10 +67,10 @@ export const loadMenus = async (id:number|string|null = null):Promise<Menu[]> =>
         return rows;
     } catch(err:unknown) {
         if (err instanceof Error) {
-            console.debug("loadMenus()", err.message);
+            debug("loadMenus()", err.message);
             return Promise.reject(err);
         }
-        console.debug("loadMenus()", err);
+        debug("loadMenus()", err);
         return Promise.reject(new Error('Error in loadMenus()'));
     }
 };
@@ -85,10 +85,10 @@ const saveNewMenu = async ({...body}:Menu):Promise<Menu> => {
         return menu;
     } catch(err:unknown) {
         if (err instanceof Error) {
-            console.debug("saveNewMenu()", err.message);
+            debug("saveNewMenu()", err.message);
             return Promise.reject(err);
         }
-        console.debug("saveNewMenu()", err);
+        debug("saveNewMenu()", err);
         return Promise.reject(new Error('Error in saveNewMenu()'));
     }
 };
@@ -110,10 +110,10 @@ const saveMenu = async ({...body}:Menu):Promise<Menu> => {
         return menu;
     } catch(err:unknown) {
         if (err instanceof Error) {
-            console.debug("saveMenu()", err.message);
+            debug("saveMenu()", err.message);
             return Promise.reject(err);
         }
-        console.debug("saveMenu()", err);
+        debug("saveMenu()", err);
         return Promise.reject(new Error('Error in saveMenu()'));
     }
 };
@@ -130,10 +130,10 @@ const deleteMenu = async (id:string|number) => {
         return await loadMenus();
     } catch(err:unknown) {
         if (err instanceof Error) {
-            console.debug("deleteMenu()", err.message);
+            debug("deleteMenu()", err.message);
             return Promise.reject(err);
         }
-        console.debug("deleteMenu()", err);
+        debug("deleteMenu()", err);
         return Promise.reject(new Error('Error in deleteMenu()'));
     }
 };
@@ -167,10 +167,10 @@ const loadItems = async (parentId: string|number, id: string|number|null = null)
         });
     } catch(err:unknown) {
         if (err instanceof Error) {
-            console.debug("loadItems()", err.message);
+            debug("loadItems()", err.message);
             return Promise.reject(err);
         }
-        console.debug("loadItems()", err);
+        debug("loadItems()", err);
         return Promise.reject(new Error('Error in loadItems()'));
     }
 };
@@ -186,10 +186,10 @@ const saveNewItem = async ({...body}:MenuItem):Promise<MenuItem> => {
         return item;
     } catch(err:unknown) {
         if (err instanceof Error) {
-            console.debug("saveNewItem()", err.message);
+            debug("saveNewItem()", err.message);
             return Promise.reject(err);
         }
-        console.debug("saveNewItem()", err);
+        debug("saveNewItem()", err);
         return Promise.reject(new Error('Error in saveNewItem()'));
     }
 };
@@ -215,10 +215,10 @@ const saveItem = async ({...body}:MenuItem):Promise<MenuItem> => {
         return item;
     } catch(err:unknown) {
         if (err instanceof Error) {
-            console.debug("saveItem()", err.message);
+            debug("saveItem()", err.message);
             return Promise.reject(err);
         }
-        console.debug("saveItem()", err);
+        debug("saveItem()", err);
         return Promise.reject(new Error('Error in saveItem()'));
     }
 };
@@ -231,10 +231,10 @@ const deleteItem = async (parentId:number|string, id:number|string) => {
         return await loadItems(parentId);
     } catch(err:unknown) {
         if (err instanceof Error) {
-            console.debug("deleteItem()", err.message);
+            debug("deleteItem()", err.message);
             return Promise.reject(err);
         }
-        console.debug("deleteItem()", err);
+        debug("deleteItem()", err);
         return Promise.reject(new Error('Error in deleteItem()'));
     }
 };
@@ -257,10 +257,10 @@ const updateItemSort = async (parentId:number|string, items:(number|string)[] = 
         return await loadItems(parentId);
     } catch(err:unknown) {
         if (err instanceof Error) {
-            console.debug("updateItemSort()", err.message);
+            debug("updateItemSort()", err.message);
             return Promise.reject(err);
         }
-        console.debug("updateItemSort()", err);
+        debug("updateItemSort()", err);
         return Promise.reject(new Error('Error in updateItemSort()'));
     }
 };
