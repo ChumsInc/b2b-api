@@ -2,13 +2,13 @@ import Debug from 'debug';
 import {mysql2Pool} from 'chums-local-modules';
 import {ProductCategoryChild} from "b2b-types";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
+import {loadProduct} from './product.js';
+import {loadCategories} from './category.js';
+import {CategoryChildCategory, CategoryChildProduct} from "b2b-types/src/products";
 
 const debug = Debug('chums:lib:product:v2:category-items');
-const {loadProduct} = require('./product');
-const {loadCategories} = require('./category');
 
-interface CategoryItemRow extends ProductCategoryChild, RowDataPacket {
-}
+type CategoryItemRow = ProductCategoryChild & RowDataPacket;
 
 export async function loadCategoryItemComponents(row: ProductCategoryChild): Promise<ProductCategoryChild> {
     try {
@@ -17,7 +17,7 @@ export async function loadCategoryItemComponents(row: ProductCategoryChild): Pro
             return {
                 ...row,
                 product,
-            }
+            } as CategoryChildProduct
         }
 
         if (row.categoriesId) {
@@ -25,7 +25,7 @@ export async function loadCategoryItemComponents(row: ProductCategoryChild): Pro
             return {
                 ...row,
                 category,
-            }
+            } as CategoryChildCategory
         }
 
         return row;
@@ -69,12 +69,10 @@ export async function loadCategoryItems({
                        FROM b2b_oscommerce.category_pages_items
                        WHERE (IFNULL(:id, '') = '' OR item_id = :id)
                          AND (IFNULL(:parentId, '') = '' OR categorypage_id = :parentId)
-                         AND (IFNULL(:keyword, '') = '' OR categorypage_id = (
-                           SELECT categorypage_id
-                           FROM b2b_oscommerce.category_pages
-                           WHERE page_keyword = :keyword
-                           LIMIT 1
-                           ))
+                         AND (IFNULL(:keyword, '') = '' OR categorypage_id = (SELECT categorypage_id
+                                                                              FROM b2b_oscommerce.category_pages
+                                                                              WHERE page_keyword = :keyword
+                                                                              LIMIT 1))
                        ORDER BY priority`;
         const data = {id, parentId, keyword};
 
@@ -163,7 +161,9 @@ export interface UpdateCategoryItemSortProps {
 
 export async function updateCategoryItemSort({parentId, items = []}: UpdateCategoryItemSortProps) {
     try {
-        const query = `UPDATE b2b_oscommerce.category_pages_items SET priority = :priority WHERE item_id = :id`;
+        const query = `UPDATE b2b_oscommerce.category_pages_items
+                       SET priority = :priority
+                       WHERE item_id = :id`;
         const connection = await mysql2Pool.getConnection();
         await Promise.all(items.map(item => {
             return connection.query(query, {...item});

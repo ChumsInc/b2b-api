@@ -1,6 +1,6 @@
 import Debug from 'debug';
 import {mysql2Pool} from 'chums-local-modules';
-import {ProductAlternateImage} from "b2b-types";
+import {ProductAlternateImage, Product} from "b2b-types";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 import {NextFunction, Request, Response} from "express";
 
@@ -163,7 +163,7 @@ export async function delImage(req:Request, res:Response) {
 
 export async function getImagesForProducts(req:Request, res:Response, next:NextFunction) {
     try {
-        const products = res.locals.response.products || [];
+        const products:Product[] = res.locals.response.products || [];
         const productIdList = products.map(p => p.id);
         const images = await loadImages({productIdList});
         products.forEach(product => {

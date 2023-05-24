@@ -1,20 +1,17 @@
-const dotenv  = require('dotenv').config();
-if (dotenv.error) {
-    console.log('*** error loading .env', dotenv.error);
-    return;
-}
+import 'dotenv/config.js'
+import express from 'express';
+import xFrameOptions from 'x-frame-options';
+import cookieParser from 'cookie-parser';
+import bodyParser from 'body-parser';
+import helmet from 'helmet';
+import {default as libRouter} from './lib/index.js'
+import http from 'node:http';
+import compression from 'compression';
+import Debug from "debug";
+import path from 'node:path'
 
-const express = require('express');
-const xFrameOptions = require('x-frame-options');
-const cookieParser = require('cookie-parser');
-const bodyParser = require('body-parser');
-const http = require('http');
-const compression = require('compression');
-const helmet = require('helmet');
-const debug = require('debug')('chums:index');
-
-// local routing
-const libRouter = require('./lib');
+process.env.DEBUG = 'chums:*,pm2:*';
+const debug = Debug('chums:index');
 
 const app = express();
 app.use(helmet());
@@ -23,7 +20,7 @@ app.use(compression());
 app.use(xFrameOptions());
 app.set('json spaces', 2);
 app.set('view engine', 'pug');
-app.set('views', __dirname + '/views');
+app.set('views', path.join(process.cwd(), '/views'));
 
 app.use(cookieParser());
 app.use(bodyParser.json());
@@ -31,12 +28,12 @@ app.use(bodyParser.urlencoded({extended: true}));
 
 //app.set('view options', {pretty: true});
 
-app.use(express.static(__dirname + '/public'));
-app.use('/css', express.static(__dirname + '/public/css'));
-app.use('/js', express.static(__dirname + '/public/js'));
-app.use('/jquery', express.static(__dirname + '/public/jquery'));
-app.use('/images', express.static(__dirname + '/public/images'));
-app.use('/modules', express.static(__dirname + '/node_modules'));
+app.use(express.static(path.join(process.cwd(), '/public')));
+app.use('/css', express.static(path.join(process.cwd(), '/public/css')));
+app.use('/js', express.static(path.join(process.cwd(), '/public/js')));
+app.use('/jquery', express.static(path.join(process.cwd(), '/public/jquery')));
+app.use('/images', express.static(path.join(process.cwd(), '/public/images')));
+app.use('/modules', express.static(path.join(process.cwd(), '/node_modules')));
 
 /**
  * Test for invalid URL
@@ -46,7 +43,7 @@ app.use((req, res, next) => {
     try {
         decodeURI(req.url);
         next();
-    } catch(err) {
+    } catch (err) {
         res.status(404).json({error: err.message});
         console.log(err.message);
     }
@@ -56,7 +53,7 @@ app.use((req, res, next) => {
     res.locals.site = 'chums';
     res.locals.response = {};
     next();
-}, libRouter.router);
+}, libRouter);
 
 
 app.get('/', function (req, res) {

@@ -107,7 +107,7 @@ export async function getSeasons(req:Request, res:Response) {
     }
 }
 
-export async function postSeason(req, res) {
+export async function postSeason(req:Request, res:Response) {
     try {
         const {season: params} = req.body;
         const [season] = await saveSeason(params);

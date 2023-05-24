@@ -2,6 +2,7 @@ import Debug from 'debug';
 import {mysql2Pool} from 'chums-local-modules';
 import {BooleanLike, ProductAdditionalData, ProductMixComponent, ProductMixVariant} from "b2b-types";
 import {RowDataPacket} from "mysql2";
+import {Request, Response} from "express";
 
 const debug = Debug('chums:lib:product:v2:mix');
 
@@ -120,7 +121,7 @@ export interface SageBillComponent {
 export interface SageBillComponentRow extends SageBillComponent, RowDataPacket {
 }
 
-export async function loadSageBillComponents({id}): Promise<SageBillComponent[]> {
+export async function loadSageBillComponents({id}:{id: number|string}): Promise<SageBillComponent[]> {
     try {
         const query = `SELECT pmd.mixDetailID                              AS id,
                               mix.mixID,
@@ -207,7 +208,7 @@ async function saveMixItem({id, mixID, itemCode, colorsId, itemQuantity}: Produc
     }
 }
 
-async function deleteMixItem({id, mixID}: Partial<ProductMixComponent>): Promise<void> {
+async function deleteMixItem({id, mixID}: {id: number|string, mixID: number|string}): Promise<void> {
     try {
         const query = `DELETE
                        FROM b2b_oscommerce.products_mixes_detail
@@ -225,7 +226,7 @@ async function deleteMixItem({id, mixID}: Partial<ProductMixComponent>): Promise
     }
 }
 
-export async function getMix(req, res) {
+export async function getMix(req:Request, res:Response) {
     try {
         const mix = await loadMix(req.params.productId);
         res.json({mix});
@@ -238,9 +239,10 @@ export async function getMix(req, res) {
     }
 }
 
-export async function getSageBOM(req, res) {
+export async function getSageBOM(req:Request, res:Response) {
     try {
-        const components = await loadSageBillComponents(req.params);
+        const {id} = req.params;
+        const components = await loadSageBillComponents({id});
         res.json({components});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -251,7 +253,7 @@ export async function getSageBOM(req, res) {
     }
 }
 
-export async function postMix(req, res) {
+export async function postMix(req:Request, res:Response) {
     try {
         const mix = await saveMix(req.body);
         res.json({mix});
@@ -264,9 +266,9 @@ export async function postMix(req, res) {
     }
 }
 
-export async function postMixItems(req, res) {
+export async function postMixItems(req:Request, res:Response) {
     try {
-        const items = req.body;
+        const items = req.body as ProductMixComponent[];
         debug('postMixItems()', items);
         await Promise.all(items.map(item => saveMixItem(item)));
         const mix = await loadMix(req.params.productId);
@@ -280,10 +282,11 @@ export async function postMixItems(req, res) {
     }
 }
 
-export async function delMixItem(req, res) {
+export async function delMixItem(req:Request, res:Response) {
     try {
         const {productId, mixID, id} = req.params;
         await deleteMixItem({mixID, id});
+        res.json({success: true});
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("delMixItem()", err.message);

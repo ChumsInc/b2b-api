@@ -7,25 +7,24 @@ import {
     isSellAsMix,
     isSellAsVariants,
     ProductListItem,
-    ProductVariant
+    ProductVariant,
+    SellAsColorsProduct,
+    SellAsMixProduct,
+    SellAsSelfProduct,
+    SellAsVariantsProduct
 } from "b2b-types";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 import {Request, Response} from "express";
-import {loadProductItems} from "./item";
-import {saveMix} from "./mix";
-import {SellAsColorsProduct, SellAsMixProduct, SellAsSelfProduct, SellAsVariantsProduct} from "b2b-types/src/products";
-import {loadImages} from "./images";
+import {loadProductItems} from "./item.js";
+import {loadMix, saveMix} from "./mix.js";
+import {loadImages} from "./images.js";
 
 export type Product = BasicProduct | SellAsSelfProduct | SellAsVariantsProduct | SellAsMixProduct | SellAsColorsProduct;
 
 const debug = Debug('chums:lib:product:v2:product');
 
-const {} = require('./utils');
-const {loadMix} = require('./mix');
-const images = require('./images');
 
-
-interface ProductListItemRow extends Omit<ProductListItem, 'redirectToParent'|'availableForSale' | 'status'>, RowDataPacket {
+interface ProductListItemRow extends Omit<ProductListItem, 'redirectToParent' | 'availableForSale' | 'status'>, RowDataPacket {
     redirectToParent: BooleanLike,
     availableForSale: BooleanLike,
     status: BooleanLike,
@@ -51,79 +50,67 @@ interface VariantRow extends Omit<ProductVariant, 'status' | 'isDefaultVariant'>
 
 async function loadList({mfg = '%'}): Promise<ProductListItem[]> {
     try {
-        const query = `SELECT p.products_id                   AS id,
-                              pd.products_name                AS name,
-                              p.products_model                AS itemCode,
-                              p.products_keyword              AS keyword,
-                              IFNULL(p.products_image, '')    AS image,
-                              p.products_status               AS status,
-                              p.manufacturers_id              AS manufacturersId,
-                              p.default_parent_products_id    AS defaultParentProductsId,
-                              p.default_categories_id         AS defaultCategoriesId,
-                              (
-                                  SELECT products_keyword
-                                  FROM b2b_oscommerce.products
-                                  WHERE products_id = p.default_parent_products_id
-                                  )                           AS parentProductKeyword,
-                              p.products_sell_as              AS sellAs,
-                              (
-                                  SELECT COUNT(*)
-                                  FROM b2b_oscommerce.products_variants
-                                  WHERE productID = p.products_id
-                                  )                           AS variantsCount,
-                              (
-                                  SELECT COUNT(*)
-                                  FROM b2b_oscommerce.products_variants v
-                                       INNER JOIN b2b_oscommerce.products p
-                                                  ON v.variantProductID = p.products_id
-                                  WHERE v.productID = p.products_id
-                                    AND p.products_sell_as = 1
-                                    AND v.active = 1
-                                    AND p.products_status = 1
-                                  )                           AS selfCount,
-                              (
-                                  SELECT COUNT(*)
-                                  FROM b2b_oscommerce.products_mixes m
-                                       INNER JOIN b2b_oscommerce.products_variants v
-                                                  ON v.variantProductID = m.productsID
-                                  WHERE v.productID = p.products_id
-                                    AND v.active = 1
-                                    AND m.active = 1
-                                  )                           AS mixesCount,
-                              (
-                                  SELECT COUNT(*)
-                                  FROM b2b_oscommerce.products_items i
-                                       INNER JOIN b2b_oscommerce.products_variants v
-                                                  ON v.variantProductID = i.productsID
-                                  WHERE v.productID = p.products_id
-                                    AND v.active = 1
-                                    AND i.active = 1
-                                  )                           AS colorsCount,
-                              IFNULL(p.redirect_to_parent, 0) AS redirectToParent,
-                              p.available_for_sale            AS availableForSale,
+        const query = `SELECT p.products_id                                      AS id,
+                              pd.products_name                                   AS name,
+                              p.products_model                                   AS itemCode,
+                              p.products_keyword                                 AS keyword,
+                              IFNULL(p.products_image, '')                       AS image,
+                              p.products_status                                  AS status,
+                              p.manufacturers_id                                 AS manufacturersId,
+                              p.default_parent_products_id                       AS defaultParentProductsId,
+                              p.default_categories_id                            AS defaultCategoriesId,
+                              (SELECT products_keyword
+                               FROM b2b_oscommerce.products
+                               WHERE products_id = p.default_parent_products_id) AS parentProductKeyword,
+                              p.products_sell_as                                 AS sellAs,
+                              (SELECT COUNT(*)
+                               FROM b2b_oscommerce.products_variants
+                               WHERE productID = p.products_id)                  AS variantsCount,
+                              (SELECT COUNT(*)
+                               FROM b2b_oscommerce.products_variants v
+                                        INNER JOIN b2b_oscommerce.products p
+                                                   ON v.variantProductID = p.products_id
+                               WHERE v.productID = p.products_id
+                                 AND p.products_sell_as = 1
+                                 AND v.active = 1
+                                 AND p.products_status = 1)                      AS selfCount,
+                              (SELECT COUNT(*)
+                               FROM b2b_oscommerce.products_mixes m
+                                        INNER JOIN b2b_oscommerce.products_variants v
+                                                   ON v.variantProductID = m.productsID
+                               WHERE v.productID = p.products_id
+                                 AND v.active = 1
+                                 AND m.active = 1)                               AS mixesCount,
+                              (SELECT COUNT(*)
+                               FROM b2b_oscommerce.products_items i
+                                        INNER JOIN b2b_oscommerce.products_variants v
+                                                   ON v.variantProductID = i.productsID
+                               WHERE v.productID = p.products_id
+                                 AND v.active = 1
+                                 AND i.active = 1)                               AS colorsCount,
+                              IFNULL(p.redirect_to_parent, 0)                    AS redirectToParent,
+                              p.available_for_sale                               AS availableForSale,
                               price.minPrice,
                               price.maxPrice,
-                              cs.specials_new_products_price  AS salePrice,
+                              cs.specials_new_products_price                     AS salePrice,
                               p.product_season_id,
-                              s.code                          AS season_code
+                              s.code                                             AS season_code
                        FROM b2b_oscommerce.products p
-                            INNER JOIN b2b_oscommerce.products_description pd
-                                       ON pd.products_id = p.products_id AND pd.language_id = 1
-                            LEFT JOIN (
-                           SELECT pi.productsId,
-                                  MIN(SuggestedRetailPrice * SalesUMConvFctr) AS minPrice,
-                                  MAX(suggestedRetailPrice * SalesUMConvFctr) AS maxPrice
-                           FROM b2b_oscommerce.products_to_itemcodes pi
-                                LEFT JOIN c2.ci_item i
-                                          ON i.company = pi.company AND i.ItemCode = pi.ItemCode
-                           WHERE NOT (i.ProductType = 'D' OR i.InactiveItem = 'Y')
-                           GROUP BY pi.productsID
-                           ) AS price
-                                      ON price.productsID = p.products_id
-                            LEFT JOIN b2b_oscommerce.current_specials cs
-                                      ON cs.products_id = p.products_id
-                            LEFT JOIN b2b_oscommerce.product_seasons s
-                                      USING (product_season_id)
+                                INNER JOIN b2b_oscommerce.products_description pd
+                                           ON pd.products_id = p.products_id AND pd.language_id = 1
+                                LEFT JOIN (SELECT pi.productsId,
+                                                  MIN(SuggestedRetailPrice * SalesUMConvFctr) AS minPrice,
+                                                  MAX(suggestedRetailPrice * SalesUMConvFctr) AS maxPrice
+                                           FROM b2b_oscommerce.products_to_itemcodes pi
+                                                    LEFT JOIN c2.ci_item i
+                                                              ON i.company = pi.company AND i.ItemCode = pi.ItemCode
+                                           WHERE NOT (i.ProductType = 'D' OR i.InactiveItem = 'Y')
+                                           GROUP BY pi.productsID) AS price
+                                          ON price.productsID = p.products_id
+                                LEFT JOIN b2b_oscommerce.current_specials cs
+                                          ON cs.products_id = p.products_id
+                                LEFT JOIN b2b_oscommerce.product_seasons s
+                                          USING (product_season_id)
                        WHERE p.manufacturers_id LIKE :mfg
                        ORDER BY pd.products_name`;
         const data = {mfg};
@@ -186,78 +173,74 @@ function parseProductRow(row: ProductRow): Product {
 
 export async function loadProduct({id, keyword, complete = false}: LoadProductProps): Promise<Product | undefined> {
     try {
-        const query = `SELECT p.products_id                                     AS id,
-                              p.products_model                                  AS itemCode,
-                              p.products_keyword                                AS keyword,
-                              d.products_name                                   AS name,
-                              d.products_meta_title                             AS metaTitle,
-                              products_description                              AS description,
-                              products_details                                  AS details,
-                              p.products_image                                  AS image,
-                              p.products_status                                 AS status,
-                              p.products_tax_class_id                           AS taxClassId,
-                              p.manufacturers_id                                AS manufacturersId,
-                              p.materials_id                                    AS materialsId,
-                              p.products_sell_as                                AS sellAs,
-                              IFNULL(ci.UDF_UPC, p.products_upc)                AS upc,
-                              p.products_default_color                          AS defaultColor,
-                              p.default_categories_id                           AS defaultCategoriesId,
-                              (
-                                  SELECT page_keyword
-                                  FROM b2b_oscommerce.category_pages
-                                  WHERE categorypage_id = p.default_categories_id
-                                  )                                             AS defaultCategoryKeyword,
-                              p.default_parent_products_id                      AS defaultParentProductsId,
+        const query = `SELECT p.products_id                                      AS id,
+                              p.products_model                                   AS itemCode,
+                              p.products_keyword                                 AS keyword,
+                              d.products_name                                    AS name,
+                              d.products_meta_title                              AS metaTitle,
+                              products_description                               AS description,
+                              products_details                                   AS details,
+                              p.products_image                                   AS image,
+                              p.products_status                                  AS status,
+                              p.products_tax_class_id                            AS taxClassId,
+                              p.manufacturers_id                                 AS manufacturersId,
+                              p.materials_id                                     AS materialsId,
+                              p.products_sell_as                                 AS sellAs,
+                              IFNULL(ci.UDF_UPC, p.products_upc)                 AS upc,
+                              p.products_default_color                           AS defaultColor,
+                              p.default_categories_id                            AS defaultCategoriesId,
+                              (SELECT page_keyword
+                               FROM b2b_oscommerce.category_pages
+                               WHERE categorypage_id = p.default_categories_id)  AS defaultCategoryKeyword,
+                              p.default_parent_products_id                       AS defaultParentProductsId,
                               p.options,
-                              p.required_options                                AS requireOptions,
-                              p.can_dome                                        AS canDome,
-                              p.can_screen_print                                AS canScreenPrint,
-                              p.available_for_sale                              AS availableForSale,
-                              p.products_date_available                         AS dateAvailable,
+                              p.required_options                                 AS requireOptions,
+                              p.can_dome                                         AS canDome,
+                              p.can_screen_print                                 AS canScreenPrint,
+                              p.available_for_sale                               AS availableForSale,
+                              p.products_date_available                          AS dateAvailable,
                               p.timestamp,
-                              IFNULL(ci.SuggestedRetailPrice, p.products_price) AS msrp,
-                              ci.StandardUnitPrice                              AS stdPrice,
-                              ci.PriceCode                                      AS priceCode,
-                              ci.StandardUnitOfMeasure                          AS stdUM,
-                              ci.SalesUnitOfMeasure                             AS salesUM,
-                              ci.SalesUMConvFctr                                AS salesUMFactor,
-                              ci.ShipWeight                                     AS shipWeight,
-                              ci.ProductType                                    AS productType,
+                              IFNULL(ci.SuggestedRetailPrice, p.products_price)  AS msrp,
+                              ci.StandardUnitPrice                               AS stdPrice,
+                              ci.PriceCode                                       AS priceCode,
+                              ci.StandardUnitOfMeasure                           AS stdUM,
+                              ci.SalesUnitOfMeasure                              AS salesUM,
+                              ci.SalesUMConvFctr                                 AS salesUMFactor,
+                              ci.ShipWeight                                      AS shipWeight,
+                              ci.ProductType                                     AS productType,
                               w.QuantityAvailable,
-                              IF(ci.InactiveItem = 'Y', 1, 0)                   AS inactiveItem,
+                              IF(ci.InactiveItem = 'Y', 1, 0)                    AS inactiveItem,
                               w.buffer,
-                              p.redirect_to_parent                              AS redirectToParent,
-                              (
-                                  SELECT products_keyword
-                                  FROM b2b_oscommerce.products
-                                  WHERE products_id = p.default_parent_products_id
-                                  )                                             AS parentProductKeyword,
-                              p.additional_data                                 AS additionalData,
+                              p.redirect_to_parent                               AS redirectToParent,
+                              (SELECT products_keyword
+                               FROM b2b_oscommerce.products
+                               WHERE products_id = p.default_parent_products_id) AS parentProductKeyword,
+                              p.additional_data                                  AS additionalData,
                               p.product_season_id,
-                              s.code                                            AS season_code,
-                              s.description                                     AS season_description,
-                              s.active                                          AS season_active,
-                              s.product_available                               AS season_available,
-                              s.product_teaser                                  AS season_teaser,
-                              p.products_price                                  AS anticipatedPrice,
-                              ia.ItemStatus                                     AS productStatus
+                              s.code                                             AS season_code,
+                              s.description                                      AS season_description,
+                              s.active                                           AS season_active,
+                              s.product_available                                AS season_available,
+                              s.product_teaser                                   AS season_teaser,
+                              p.products_price                                   AS anticipatedPrice,
+                              ia.ItemStatus                                      AS productStatus
                        FROM b2b_oscommerce.products p
-                            INNER JOIN b2b_oscommerce.products_description d
-                                       ON d.products_id = p.products_id AND d.language_id = 1
-                            LEFT JOIN b2b_oscommerce.manufacturers m
-                                      ON p.manufacturers_id = m.manufacturers_id
-                            LEFT JOIN c2.ci_item ci
-                                      ON ci.Company = m.company AND ci.ItemCode = p.products_model
-                            LEFT JOIN c2.IM_ItemWarehouseAdditional ia
-                                      ON ia.company = ci.company
-                                          AND ia.ItemCode = ci.ItemCode
-                                          AND ia.WarehouseCode = ci.DefaultWarehouseCode
-                            LEFT JOIN c2.v_web_available w
-                                      ON w.Company = ci.company
-                                          AND w.ItemCode = ci.ItemCode
-                                          AND w.WarehouseCode = ci.DefaultWarehouseCode
-                            LEFT JOIN b2b_oscommerce.product_seasons s
-                                      ON s.product_season_id = p.product_season_id AND s.active = 1
+                                INNER JOIN b2b_oscommerce.products_description d
+                                           ON d.products_id = p.products_id AND d.language_id = 1
+                                LEFT JOIN b2b_oscommerce.manufacturers m
+                                          ON p.manufacturers_id = m.manufacturers_id
+                                LEFT JOIN c2.ci_item ci
+                                          ON ci.Company = m.company AND ci.ItemCode = p.products_model
+                                LEFT JOIN c2.IM_ItemWarehouseAdditional ia
+                                          ON ia.company = ci.company
+                                              AND ia.ItemCode = ci.ItemCode
+                                              AND ia.WarehouseCode = ci.DefaultWarehouseCode
+                                LEFT JOIN c2.v_web_available w
+                                          ON w.Company = ci.company
+                                              AND w.ItemCode = ci.ItemCode
+                                              AND w.WarehouseCode = ci.DefaultWarehouseCode
+                                LEFT JOIN b2b_oscommerce.product_seasons s
+                                          ON s.product_season_id = p.product_season_id AND s.active = 1
                        WHERE p.products_id = :id
                           OR p.products_keyword = :keyword`;
         const data = {id, keyword};
@@ -278,7 +261,10 @@ export async function loadProduct({id, keyword, complete = false}: LoadProductPr
             variants = await loadVariants({productId: productRow.id});
         }
         if (isSellAsMix(product)) {
-            product.mix = await loadMix(product.id);
+            const mix = await loadMix(product.id);
+            if (mix) {
+                product.mix = mix;
+            }
         }
 
         if (isSellAsColors(product)) {
@@ -423,7 +409,8 @@ async function addProduct({keyword}: { keyword: string }): Promise<number> {
         const queryProduct = `INSERT INTO b2b_oscommerce.products
                                   (products_keyword, products_date_added)
                               VALUES (:keyword, NOW())`;
-        const queryDescription = `INSERT INTO b2b_oscommerce.products_description (products_id) VALUES (:id)`;
+        const queryDescription = `INSERT INTO b2b_oscommerce.products_description (products_id)
+                                  VALUES (:id)`;
 
         const connection = await mysql2Pool.getConnection();
         const [{insertId}] = await connection.query<ResultSetHeader>(queryProduct, {keyword});
@@ -457,8 +444,8 @@ async function loadVariants({productId, id}: LoadVariantsProps): Promise<Product
                               v.priority,
                               v.timestamp
                        FROM b2b_oscommerce.products_variants v
-                            INNER JOIN b2b_oscommerce.products p
-                                       ON p.products_id = v.variantProductID
+                                INNER JOIN b2b_oscommerce.products p
+                                           ON p.products_id = v.variantProductID
                        WHERE productId = :productId
                          AND (id = :id OR :id IS NULL)`;
         const data = {productId, id};
@@ -603,7 +590,9 @@ async function updateVariantSort(productId: string | number, variants: Partial<P
 
 async function deleteVariant(id: number | string): Promise<void> {
     try {
-        const sql = `DELETE FROM b2b_oscommerce.products_variants WHERE id = :id`;
+        const sql = `DELETE
+                     FROM b2b_oscommerce.products_variants
+                     WHERE id = :id`;
         const args = {id};
         await mysql2Pool.query(sql, args);
     } catch (err: unknown) {

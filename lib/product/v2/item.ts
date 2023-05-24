@@ -5,7 +5,7 @@ import {RowDataPacket} from "mysql2";
 import {Request, Response} from "express";
 
 const debug = Debug('chums:lib:product:v2:item');
-const {loadSeasons} = require('./seasons');
+import {loadSeasons} from './seasons.js';
 
 interface ProductColorVariantRow extends Omit<ProductColorVariant, 'status'|'additionalData'|'inactiveItem'>, RowDataPacket {
     status: 1|0,

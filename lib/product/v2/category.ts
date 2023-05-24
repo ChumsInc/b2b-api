@@ -3,10 +3,16 @@ import {mysql2Pool} from 'chums-local-modules';
 import {Request, Response} from "express";
 import {ProductCategory} from "b2b-types";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
+import {
+    deleteCategoryItem,
+    loadCategoryItems,
+    saveCategoryItem,
+    updateCategoryItemSort,
+    UpdateCategoryItemSortProps
+} from './category-items.js';
 
 
 const debug = Debug('chums:lib:product:v2:category');
-const {loadCategoryItems, saveCategoryItem, deleteCategoryItem, updateCategoryItemSort} = require('./category-items');
 
 
 interface ProductCategoryRow extends ProductCategory, RowDataPacket {
@@ -20,28 +26,27 @@ interface LoadCategoriesProps {
 }
 
 export async function loadCategories({
-                                  id = null,
-                                  parentId = null,
-                                  keyword = null
-                              }: LoadCategoriesProps): Promise<ProductCategory[]> {
+                                         id = null,
+                                         parentId = null,
+                                         keyword = null
+                                     }: LoadCategoriesProps): Promise<ProductCategory[]> {
 
     try {
-        const query = `SELECT categorypage_id                        AS id,
-                              page_title                             AS title,
-                              page_keyword                           AS keyword,
-                              page_text                              AS pageText,
-                              page_description_meta                  AS descriptionMeta,
-                              parent_id                              AS parentId,
+        const query = `SELECT categorypage_id                                                                         AS id,
+                              page_title                                                                              AS title,
+                              page_keyword                                                                            AS keyword,
+                              page_text                                                                               AS pageText,
+                              page_description_meta                                                                   AS descriptionMeta,
+                              parent_id                                                                               AS parentId,
                               status,
                               changefreq,
                               priority,
-                              JSON_EXTRACT(more_data, '$.css')       AS css,
-                              JSON_EXTRACT(more_data, '$.lifestyle') AS lifestyle,
-                              IFNULL(GREATEST(p.timestamp, (
-                                  SELECT MAX(timestamp)
-                                  FROM b2b_oscommerce.category_pages_items
-                                  WHERE categorypage_id = p.categorypage_id
-                                  )), p.timestamp)                   AS timestamp
+                              JSON_EXTRACT(more_data, '$.css')                                                        AS css,
+                              JSON_EXTRACT(more_data, '$.lifestyle')                                                  AS lifestyle,
+                              IFNULL(GREATEST(p.timestamp, (SELECT MAX(timestamp)
+                                                            FROM b2b_oscommerce.category_pages_items
+                                                            WHERE categorypage_id = p.categorypage_id)),
+                                     p.timestamp)                                                                     AS timestamp
                        FROM b2b_oscommerce.category_pages p
                        WHERE (IFNULL(:id, '') = '' OR categorypage_id = :id)
                          AND (IFNULL(:parent_id, '') = '' OR parent_id = :parent_id)
@@ -124,7 +129,7 @@ async function addCategory(params: ProductCategory): Promise<ProductCategory> {
 }
 
 
-async function updateCategory(params): Promise<ProductCategory> {
+async function updateCategory(params:ProductCategory): Promise<ProductCategory> {
     try {
         if (!params.id) {
             return addCategory({...params});
@@ -177,12 +182,7 @@ async function updateCategory(params): Promise<ProductCategory> {
     }
 }
 
-/**
- *
- * @param {number} id
- * @returns Promise
- */
-async function deleteCategory({id}) {
+async function deleteCategory({id}:{id: number|string}) {
     try {
         const items = await loadCategoryItems({parentId: id});
         if (items.length) {
@@ -283,9 +283,10 @@ export async function postCategoryItem(req: Request, res: Response) {
     }
 }
 
-export async function postItemSort(req, res) {
+export async function postItemSort(req:Request, res:Response) {
     try {
-        const items = await updateCategoryItemSort({...req.params, items: req.body});
+        const params = {...req.params, items: req.body} as UpdateCategoryItemSortProps;
+        const items = await updateCategoryItemSort(params);
         res.json({items});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -298,7 +299,8 @@ export async function postItemSort(req, res) {
 
 export async function delCategoryItem(req: Request, res: Response) {
     try {
-        const items = await deleteCategoryItem(req.params);
+        const {id, parentId} = req.params;
+        const items = await deleteCategoryItem({id, parentId});
         res.json({items});
     } catch (err: unknown) {
         if (err instanceof Error) {
