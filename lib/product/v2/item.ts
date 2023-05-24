@@ -1,24 +1,29 @@
 import Debug from 'debug';
-import {mysql2Pool, PoolConnection} from 'chums-local-modules';
+import {mysql2Pool} from 'chums-local-modules';
 import {ProductAdditionalData, ProductColorVariant} from "b2b-types";
 import {RowDataPacket} from "mysql2";
 import {Request, Response} from "express";
-
-const debug = Debug('chums:lib:product:v2:item');
 import {loadSeasons} from './seasons.js';
 
-interface ProductColorVariantRow extends Omit<ProductColorVariant, 'status'|'additionalData'|'inactiveItem'>, RowDataPacket {
-    status: 1|0,
-    inactiveItem: 1|0|null,
+const debug = Debug('chums:lib:product:v2:item');
+
+interface ProductColorVariantRow extends Omit<ProductColorVariant, 'status' | 'additionalData' | 'inactiveItem'>, RowDataPacket {
+    status: 1 | 0,
+    inactiveItem: 1 | 0 | null,
     additionalData: string,
 }
 
 export interface LoadItemsProps {
-    id?: number|string,
-    productId?: number|string,
-    productIdList?: (number|string)[]
+    id?: number | string,
+    productId?: number | string,
+    productIdList?: (number | string)[]
 }
-export async function loadProductItems({id, productId, productIdList = [0]}:LoadItemsProps):Promise<ProductColorVariant[]> {
+
+export async function loadProductItems({
+                                           id,
+                                           productId,
+                                           productIdList = [0]
+                                       }: LoadItemsProps): Promise<ProductColorVariant[]> {
     try {
         if (productId) {
             productIdList.push(productId);
@@ -45,7 +50,7 @@ export async function loadProductItems({id, productId, productIdList = [0]}:Load
                               ci.UDF_UPC                      AS upc,
                               ifnull(i.additionalData, '{}')  AS additionalData,
                               i.timestamp,
-                              ia.ItemStatus as productStatus
+                              ia.ItemStatus                   as productStatus
                        FROM b2b_oscommerce.products_items i
                                 INNER JOIN b2b_oscommerce.products p
                                            ON p.products_id = i.productsID
@@ -70,10 +75,11 @@ export async function loadProductItems({id, productId, productIdList = [0]}:Load
 
         const seasons = await loadSeasons({});
         return rows.map(row => {
-            let additionalData:ProductAdditionalData = {};
+            let additionalData: ProductAdditionalData = {};
             try {
                 additionalData = JSON.parse(row.additionalData);
-            } catch(err:unknown) {}
+            } catch (err: unknown) {
+            }
             if (additionalData.season_id) {
                 const [season] = seasons.filter(s => s.product_season_id === additionalData.season_id);
                 if (season.active) {
@@ -86,10 +92,15 @@ export async function loadProductItems({id, productId, productIdList = [0]}:Load
                 status: !!row.status && !(!row.productType || row.productType === 'D' || row.inactiveItem === 1),
                 additionalData,
                 QuantityAvailable: Number(row.QuantityAvailable),
-                color: {id: row.colorsId, code: row.colorCode, name: row.colorName, swatchCode: additionalData.swatch_code || null},
+                color: {
+                    id: row.colorsId,
+                    code: row.colorCode,
+                    name: row.colorName,
+                    swatchCode: additionalData.swatch_code || null
+                },
             }
         })
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("loadProductItems()", err.message);
             return Promise.reject(err);
@@ -103,7 +114,7 @@ interface ProductItemIDRow extends RowDataPacket {
     id: number,
 }
 
-async function saveNewProductItem({productId, colorsId}:Partial<ProductColorVariant>):Promise<number> {
+async function saveNewProductItem({productId, colorsId}: Partial<ProductColorVariant>): Promise<number> {
     try {
         const query = `INSERT IGNORE INTO b2b_oscommerce.products_items (productsID, colorsID, itemCode)
                        VALUES (:productId, :colorsId, '')`;
@@ -119,7 +130,7 @@ async function saveNewProductItem({productId, colorsId}:Partial<ProductColorVari
         const [[item]] = await mysql2Pool.query<ProductItemIDRow[]>(qId, data);
 
         return item.id;
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("saveNewProductItem()", err.message);
             return Promise.reject(err);
@@ -129,7 +140,15 @@ async function saveNewProductItem({productId, colorsId}:Partial<ProductColorVari
     }
 }
 
-async function saveProductItem({id, productId, colorsId, colorCode, itemCode, status, additionalData}:ProductColorVariant) {
+async function saveProductItem({
+                                   id,
+                                   productId,
+                                   colorsId,
+                                   colorCode,
+                                   itemCode,
+                                   status,
+                                   additionalData
+                               }: ProductColorVariant) {
     try {
         if (Number(id) === 0) {
             id = await saveNewProductItem({productId, colorsId});
@@ -143,7 +162,7 @@ async function saveProductItem({id, productId, colorsId, colorCode, itemCode, st
         const data = {id, colorCode, itemCode, status, additionalData: JSON.stringify(additionalData)};
         await mysql2Pool.query(query, data);
         return await loadProductItems({productId});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("saveProductItem()", err.message);
             return Promise.reject(err);
@@ -153,13 +172,16 @@ async function saveProductItem({id, productId, colorsId, colorCode, itemCode, st
     }
 }
 
-async function deleteProductItem({id, productId}:Partial<ProductColorVariant>):Promise<ProductColorVariant[]> {
+async function deleteProductItem({id, productId}: Partial<ProductColorVariant>): Promise<ProductColorVariant[]> {
     try {
-        const query = `DELETE FROM b2b_oscommerce.products_items WHERE id = :id AND productsID = :productId`;
+        const query = `DELETE
+                       FROM b2b_oscommerce.products_items
+                       WHERE id = :id
+                         AND productsID = :productId`;
         const data = {id, productId};
         await mysql2Pool.query(query, data);
         return await loadProductItems({productId});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("deleteItem()", err.message);
             return Promise.reject(err);
@@ -169,12 +191,12 @@ async function deleteProductItem({id, productId}:Partial<ProductColorVariant>):P
     }
 }
 
-export async function getProductItems(req:Request, res:Response) {
+export async function getProductItems(req: Request, res: Response) {
     try {
         const {productId, id} = req.params;
         const items = await loadProductItems({id, productId});
         res.json({items});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getItems()", err.message);
             return res.json({error: err.message, name: err.name});
@@ -183,11 +205,11 @@ export async function getProductItems(req:Request, res:Response) {
     }
 }
 
-export async function postProductItem(req:Request, res:Response) {
+export async function postProductItem(req: Request, res: Response) {
     try {
         const items = await saveProductItem(req.body);
         res.json({items});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postItem()", err.message);
             return res.json({error: err.message, name: err.name});
@@ -196,11 +218,11 @@ export async function postProductItem(req:Request, res:Response) {
     }
 }
 
-export async function delProductItem(req:Request, res:Response) {
+export async function delProductItem(req: Request, res: Response) {
     try {
         const items = await deleteProductItem(req.params);
         res.json({items});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("delProductItem()", err.message);
             return res.json({error: err.message, name: err.name});
