@@ -6,12 +6,12 @@ import {Request, Response} from "express";
 
 const debug = Debug('chums:lib:product:v2:mix');
 
-interface ProductMixRow extends Omit<ProductMixVariant, 'status'|'inactiveItem'>, RowDataPacket {
+interface ProductMixRow extends Omit<ProductMixVariant, 'status' | 'inactiveItem'>, RowDataPacket {
     status: BooleanLike,
     inactiveItem: BooleanLike,
 }
 
-interface ProductMixComponentRow extends Omit<ProductMixComponent, 'additionalData'|'color'|'color_code'|'color_name'>, RowDataPacket {
+interface ProductMixComponentRow extends Omit<ProductMixComponent, 'additionalData' | 'color' | 'color_code' | 'color_name'>, RowDataPacket {
     additionalData: string;
     color_code: string;
     color_name: string;
@@ -38,19 +38,19 @@ export async function loadMix(id: number | string): Promise<ProductMixVariant | 
                               mix.timestamp,
                               ia.ItemStatus                   AS productStatus
                        FROM b2b_oscommerce.products p
-                            INNER JOIN b2b_oscommerce.products_mixes mix
-                                       ON p.products_id = mix.productsID
-                            LEFT JOIN b2b_oscommerce.manufacturers m
-                                      ON p.manufacturers_id = m.manufacturers_id
-                            LEFT JOIN c2.ci_item ci
-                                      ON ci.Company = m.company AND ci.ItemCode = mix.itemCode
-                            LEFT JOIN c2.v_web_available w
-                                      ON w.Company = ci.company AND w.ItemCode = ci.ItemCode AND
-                                         w.WarehouseCode = ci.DefaultWarehouseCode
-                            LEFT JOIN c2.IM_ItemWarehouseAdditional ia
-                                      ON ia.company = ci.company
-                                          AND ia.ItemCode = ci.ItemCode
-                                          AND ia.WarehouseCode = ci.DefaultWarehouseCode
+                                INNER JOIN b2b_oscommerce.products_mixes mix
+                                           ON p.products_id = mix.productsID
+                                LEFT JOIN b2b_oscommerce.manufacturers m
+                                          ON p.manufacturers_id = m.manufacturers_id
+                                LEFT JOIN c2.ci_item ci
+                                          ON ci.Company = m.company AND ci.ItemCode = mix.itemCode
+                                LEFT JOIN c2.v_web_available w
+                                          ON w.Company = ci.company AND w.ItemCode = ci.ItemCode AND
+                                             w.WarehouseCode = ci.DefaultWarehouseCode
+                                LEFT JOIN c2.IM_ItemWarehouseAdditional ia
+                                          ON ia.company = ci.company
+                                              AND ia.ItemCode = ci.ItemCode
+                                              AND ia.WarehouseCode = ci.DefaultWarehouseCode
                        WHERE mix.productsID = :id`;
         const queryDetail = `SELECT d.MixDetailID  AS id,
                                     m.mixID,
@@ -59,17 +59,15 @@ export async function loadMix(id: number | string): Promise<ProductMixVariant | 
                                     d.colorsId,
                                     c.color_code,
                                     c.color_name,
-                                    (
-                                        SELECT additionalData
-                                        FROM b2b_oscommerce.products_items i
-                                        WHERE i.itemCode = d.ItemCode
-                                        LIMIT 1
-                                        )          AS additionalData
+                                    (SELECT additionalData
+                                     FROM b2b_oscommerce.products_items i
+                                     WHERE i.itemCode = d.ItemCode
+                                     LIMIT 1)      AS additionalData
                              FROM b2b_oscommerce.products_mixes m
-                                  INNER JOIN b2b_oscommerce.products_mixes_detail d
-                                             ON d.mixID = m.mixID
-                                  LEFT JOIN b2b_oscommerce.colors c
-                                            ON c.colors_id = d.colorsId
+                                      INNER JOIN b2b_oscommerce.products_mixes_detail d
+                                                 ON d.mixID = m.mixID
+                                      LEFT JOIN b2b_oscommerce.colors c
+                                                ON c.colors_id = d.colorsId
                              WHERE m.productsID = :id
                              ORDER BY ItemCode`;
         const data = {id};
@@ -121,7 +119,7 @@ export interface SageBillComponent {
 export interface SageBillComponentRow extends SageBillComponent, RowDataPacket {
 }
 
-export async function loadSageBillComponents({id}:{id: number|string}): Promise<SageBillComponent[]> {
+export async function loadSageBillComponents({id}: { id: number | string }): Promise<SageBillComponent[]> {
     try {
         const query = `SELECT pmd.mixDetailID                              AS id,
                               mix.mixID,
@@ -131,18 +129,18 @@ export async function loadSageBillComponents({id}:{id: number|string}): Promise<
                               c.color_code                                 AS colorCode,
                               c.color_name                                 AS colorName
                        FROM b2b_oscommerce.products p
-                            INNER JOIN b2b_oscommerce.manufacturers m
-                                       ON m.manufacturers_id = p.manufacturers_id
-                            INNER JOIN b2b_oscommerce.products_mixes mix
-                                       ON mix.productsID = p.products_id
-                            LEFT JOIN c2.ci_item i
-                                      ON i.Company = m.company AND i.ItemCode = mix.itemCode
-                            LEFT JOIN c2.BM_BillDetail d
-                                      ON d.Company = m.company AND d.BillNo = mix.itemCode
-                            LEFT JOIN b2b_oscommerce.products_mixes_detail pmd
-                                      ON pmd.mixID = mix.mixID AND pmd.itemCode = d.ComponentItemCode
-                            LEFT JOIN b2b_oscommerce.colors c
-                                      ON c.colors_id = pmd.colorsId
+                                INNER JOIN b2b_oscommerce.manufacturers m
+                                           ON m.manufacturers_id = p.manufacturers_id
+                                INNER JOIN b2b_oscommerce.products_mixes mix
+                                           ON mix.productsID = p.products_id
+                                LEFT JOIN c2.ci_item i
+                                          ON i.Company = m.company AND i.ItemCode = mix.itemCode
+                                LEFT JOIN c2.BM_BillDetail d
+                                          ON d.Company = m.company AND d.BillNo = mix.itemCode
+                                LEFT JOIN b2b_oscommerce.products_mixes_detail pmd
+                                          ON pmd.mixID = mix.mixID AND pmd.itemCode = d.ComponentItemCode
+                                LEFT JOIN b2b_oscommerce.colors c
+                                          ON c.colors_id = pmd.colorsId
                        WHERE mix.productsID = :id
                        ORDER BY d.LineSeqNo`;
         const data = {id};
@@ -208,7 +206,7 @@ async function saveMixItem({id, mixID, itemCode, colorsId, itemQuantity}: Produc
     }
 }
 
-async function deleteMixItem({id, mixID}: {id: number|string, mixID: number|string}): Promise<void> {
+async function deleteMixItem({id, mixID}: { id: number | string, mixID: number | string }): Promise<void> {
     try {
         const query = `DELETE
                        FROM b2b_oscommerce.products_mixes_detail
@@ -226,7 +224,31 @@ async function deleteMixItem({id, mixID}: {id: number|string, mixID: number|stri
     }
 }
 
-export async function getMix(req:Request, res:Response) {
+async function deleteMix(id: number | string): Promise<void> {
+    try {
+        const mix = await loadMix(id);
+        if (mix?.items?.length) {
+            return Promise.reject(new Error('Unable to delete a mix with items'));
+        }
+        const sql = `SELECT *
+                     FROM b2b_oscommerce.products_variants
+                     WHERE productID = :id`;
+        const sqlDelete = `DELETE
+                     FROM b2b_oscommerce.products_mixes
+                     WHERE mixID = :id`;
+
+
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            console.debug("deleteMix()", err.message);
+            return Promise.reject(err);
+        }
+        console.debug("deleteMix()", err);
+        return Promise.reject(new Error('Error in deleteMix()'));
+    }
+}
+
+export async function getMix(req: Request, res: Response) {
     try {
         const mix = await loadMix(req.params.productId);
         res.json({mix});
@@ -239,7 +261,7 @@ export async function getMix(req:Request, res:Response) {
     }
 }
 
-export async function getSageBOM(req:Request, res:Response) {
+export async function getSageBOM(req: Request, res: Response) {
     try {
         const {id} = req.params;
         const components = await loadSageBillComponents({id});
@@ -253,7 +275,7 @@ export async function getSageBOM(req:Request, res:Response) {
     }
 }
 
-export async function postMix(req:Request, res:Response) {
+export async function postMix(req: Request, res: Response) {
     try {
         const mix = await saveMix(req.body);
         res.json({mix});
@@ -266,7 +288,7 @@ export async function postMix(req:Request, res:Response) {
     }
 }
 
-export async function postMixItems(req:Request, res:Response) {
+export async function postMixItems(req: Request, res: Response) {
     try {
         const items = req.body as ProductMixComponent[];
         debug('postMixItems()', items);
@@ -282,12 +304,12 @@ export async function postMixItems(req:Request, res:Response) {
     }
 }
 
-export async function delMixItem(req:Request, res:Response) {
+export async function delMixItem(req: Request, res: Response) {
     try {
         const {productId, mixID, id} = req.params;
         await deleteMixItem({mixID, id});
         res.json({success: true});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("delMixItem()", err.message);
             return Promise.reject(err);

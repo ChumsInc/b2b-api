@@ -606,6 +606,7 @@ async function deleteVariant(id: number | string): Promise<void> {
 }
 
 
+
 export async function getProduct(req: Request, res: Response) {
     try {
         const {id, keyword} = req.params;

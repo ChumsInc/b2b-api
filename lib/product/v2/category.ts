@@ -78,10 +78,13 @@ interface LoadCategoryProps {
     id?: string | number | null,
 }
 
-export async function loadCategory({keyword, id}: LoadCategoryProps): Promise<ProductCategory> {
+export async function loadCategory({keyword, id}: LoadCategoryProps = {}): Promise<ProductCategory|null> {
     try {
+        if (!keyword && !id) {
+            return null;
+        }
         const [category] = await loadCategories({id, keyword});
-        return category;
+        return category ?? null;
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("loadCategory()", err.message);
@@ -92,7 +95,7 @@ export async function loadCategory({keyword, id}: LoadCategoryProps): Promise<Pr
     }
 }
 
-async function addCategory(params: ProductCategory): Promise<ProductCategory> {
+async function addCategory(params: ProductCategory): Promise<ProductCategory|null> {
     try {
         const {
             title, keyword, pageText = '', descriptionMeta = '', parentId = 0, status = 0,
@@ -129,7 +132,7 @@ async function addCategory(params: ProductCategory): Promise<ProductCategory> {
 }
 
 
-async function updateCategory(params:ProductCategory): Promise<ProductCategory> {
+async function updateCategory(params:ProductCategory): Promise<ProductCategory|null> {
     try {
         if (!params.id) {
             return addCategory({...params});
@@ -207,6 +210,10 @@ async function deleteCategory({id}:{id: number|string}) {
 export async function getCategory(req: Request, res: Response) {
     try {
         const category = await loadCategory(req.params);
+        if (!category) {
+            res.json({categories: []});
+            return;
+        }
         res.json({categories: [category]});
     } catch (err: unknown) {
         if (err instanceof Error) {

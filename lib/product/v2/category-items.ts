@@ -4,11 +4,51 @@ import {ProductCategoryChild} from "b2b-types";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 import {loadProduct} from './product.js';
 import {loadCategories} from './category.js';
-import {CategoryChildCategory, CategoryChildProduct} from "b2b-types/src/products";
+import {CategoryChildCategory, CategoryChildProduct} from "b2b-types";
 
 const debug = Debug('chums:lib:product:v2:category-items');
 
 type CategoryItemRow = ProductCategoryChild & RowDataPacket;
+
+export interface ProductUsage {
+    categorypage_id: number;
+    page_keyword: string;
+    page_title: string;
+    item_title: string;
+    item_status: boolean;
+    products_keyword: string;
+    products_status: boolean;
+}
+interface ProductUsageRow extends Omit<ProductUsage, 'item_status'|'products_status'> {
+    item_status: 1|0;
+    products_status: 1|0;
+}
+
+export interface CategoryUsage {
+    categorypage_id: number;
+    page_keyword: string;
+    page_title: string;
+    item_title: string;
+    item_status: boolean;
+}
+interface CategoryUsageRow extends Omit<CategoryUsage, 'item_status'> {
+    item_status: 1|0;
+}
+
+export interface MenuUsage {
+    menu_id: number;
+    title: string;
+    menu_status: boolean;
+    item_title: string;
+    url: string;
+    item_status: boolean;
+}
+interface MenuUsageRow extends Omit<MenuUsage, 'menu_status'|'item_status'> {
+    menu_status: 1|0;
+    item_status: 1|0;
+}
+
+
 
 export async function loadCategoryItemComponents(row: ProductCategoryChild): Promise<ProductCategoryChild> {
     try {
@@ -86,6 +126,96 @@ export async function loadCategoryItems({
         }
         debug("loadItems()", err);
         return Promise.reject(new Error('Error in loadItems()'));
+    }
+}
+
+export async function findProductUsage(keyword:string):Promise<ProductUsage[]> {
+    try {
+        const sql = `SELECT cp.categorypage_id,
+                            cp.page_keyword,
+                            cp.page_title,
+                            i.item_title,
+                            i.status as item_status,
+                            p.products_keyword,
+                            p.products_status
+                     FROM b2b_oscommerce.category_pages cp
+                              INNER JOIN b2b_oscommerce.category_pages_items i on i.categorypage_id = cp.categorypage_id
+                              inner join b2b_oscommerce.products p on p.products_id = i.products_id
+                     where p.products_keyword = :keyword`
+        const [rows] = await mysql2Pool.query<(ProductUsageRow & RowDataPacket)[]>(sql, {keyword});
+        return rows.map(row => {
+            return {
+                ...row,
+                item_status: !!row.item_status,
+                products_status: !!row.products_status,
+            }
+        });
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            console.debug("findProductUsage()", err.message);
+            return Promise.reject(err);
+        }
+        console.debug("findProductUsage()", err);
+        return Promise.reject(new Error('Error in findProductUsage()'));
+    }
+}
+
+export async function findCategoryUsage(keyword:string):Promise<CategoryUsage[]> {
+    try {
+        const sql = `SELECT cp.categorypage_id,
+                            cp.page_keyword,
+                            cp.page_title,
+                            i.item_title,
+                            i.status as item_status
+                     FROM b2b_oscommerce.category_pages cp
+                              INNER JOIN b2b_oscommerce.category_pages_items i on i.categorypage_id = cp.categorypage_id
+                     INNER JOIN b2b_oscommerce.category_pages cp2 on cp2.categorypage_id = i.categories_id
+                     where cp2.page_keyword = :keyword`
+        const [rows] = await mysql2Pool.query<(CategoryUsageRow & RowDataPacket)[]>(sql, {keyword});
+        return rows.map(row => {
+            return {
+                ...row,
+                item_status: !!row.item_status,
+            }
+        });
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            console.debug("findCategoryUsage()", err.message);
+            return Promise.reject(err);
+        }
+        console.debug("findCategoryUsage()", err);
+        return Promise.reject(new Error('Error in findCategoryUsage()'));
+    }
+}
+
+export async function findMenuUsage(keyword:string):Promise<MenuUsage[]> {
+    try {
+        const sql = `SELECT m.menu_id,
+                            m.title,
+                            m.status  as menu_status,
+                            mi.title  as item_title,
+                            mi.url,
+                            mi.status as item_status
+                     FROM b2b_oscommerce.menu m
+                              inner join b2b_oscommerce.menu_items mi on mi.parent_menu_id = m.menu_id
+                              inner join b2b_oscommerce.category_pages cp on concat('/', cp.page_keyword) = mi.url
+                     where cp.page_keyword = :keyword`
+        const [rows] = await mysql2Pool.query<(MenuUsageRow & RowDataPacket)[]>(sql, {keyword});
+        return rows.map(row => {
+            return {
+                ...row,
+                menu_status: !!row.menu_status,
+                item_status: !!row.item_status,
+            }
+        });
+
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            console.debug("loadMenuUsage()", err.message);
+            return Promise.reject(err);
+        }
+        console.debug("loadMenuUsage()", err);
+        return Promise.reject(new Error('Error in loadMenuUsage()'));
     }
 }
 
