@@ -3,9 +3,6 @@ import {mysql2Pool} from 'chums-local-modules';
 import {
     BasicProduct,
     BooleanLike,
-    isSellAsColors,
-    isSellAsMix,
-    isSellAsVariants,
     ProductListItem,
     ProductVariant,
     SellAsColorsProduct,
@@ -18,6 +15,11 @@ import {Request, Response} from "express";
 import {loadProductItems} from "./item.js";
 import {loadMix, saveMix} from "./mix.js";
 import {loadImages} from "./images.js";
+import {
+    isSellAsColors,
+    isSellAsMix,
+    isSellAsVariants,
+} from './utils.js'
 
 export type Product = BasicProduct | SellAsSelfProduct | SellAsVariantsProduct | SellAsMixProduct | SellAsColorsProduct;
 
@@ -604,7 +606,6 @@ async function deleteVariant(id: number | string): Promise<void> {
         return Promise.reject(new Error('Error in deleteVariant()'));
     }
 }
-
 
 
 export async function getProduct(req: Request, res: Response) {

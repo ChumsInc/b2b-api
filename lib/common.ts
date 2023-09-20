@@ -10,3 +10,4 @@ export const deprecationNotice = (req: Request, res: Response, next: NextFunctio
     debug(req.method, req.originalUrl, '<<< DEPRECATED', req.headers);
     next();
 }
+
