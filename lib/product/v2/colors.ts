@@ -58,7 +58,10 @@ async function saveColor({id, code, name}:Partial<ProductColor>):Promise<Product
             return Promise.reject(new Error(`Color code '${code}' already exists`));
         }
         const queryInsert = `INSERT INTO b2b_oscommerce.colors (color_code, color_name)
-                             VALUES (:code, :name)`;
+                             VALUES (:code,
+                                     IFNULL(NULLIF(:name, ''), (SELECT IFNULL(description, '')
+                                                                FROM c2.sku_colors
+                                                                WHERE code = :code)))`;
         const queryUpdate = `UPDATE b2b_oscommerce.colors
                              SET color_code = :code,
                                  color_name = :name

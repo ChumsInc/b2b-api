@@ -20,6 +20,7 @@ import {
     isSellAsMix,
     isSellAsVariants,
 } from './utils.js'
+import {loadSeasons} from "./seasons.js";
 
 export type Product = BasicProduct | SellAsSelfProduct | SellAsVariantsProduct | SellAsMixProduct | SellAsColorsProduct;
 
@@ -224,6 +225,7 @@ export async function loadProduct({id, keyword, complete = false}: LoadProductPr
                               s.active                                           AS season_active,
                               s.product_available                                AS season_available,
                               s.product_teaser                                   AS season_teaser,
+                              s.preseason_message                                AS preSeasonMessage,
                               p.products_price                                   AS anticipatedPrice,
                               ia.ItemStatus                                      AS productStatus
                        FROM b2b_oscommerce.products p
@@ -255,6 +257,8 @@ export async function loadProduct({id, keyword, complete = false}: LoadProductPr
         product.images = await loadImages({productId: product.id});
 
         if (product.product_season_id) {
+            const [season] = await loadSeasons({id: product.product_season_id});
+            product.season = season ?? null;
             product.season_active = !!product.season_active;
         }
 
@@ -523,10 +527,17 @@ async function saveNewVariant(variant: ProductVariant): Promise<ProductVariant> 
         if (!variant) {
             return Promise.reject(new Error('variant.js::saveNew() missing parameters'));
         }
-        const {parentProductID, variantProductID, title, status, priority} = variant;
+        const {parentProductID, variantProductID, title, status} = variant;
+        interface NextPriorityRow {
+            nextPriority: number;
+        }
+        const prioritySQL = `SELECT IFNULL(MAX(priority), -1) + 1 as nextPriority
+                              FROM b2b_oscommerce.products_variants
+                              WHERE productID = :parentProductID`;
+        const [rows] = await mysql2Pool.query<(NextPriorityRow & RowDataPacket)[]>(prioritySQL, {parentProductID});
         const sql = `INSERT INTO b2b_oscommerce.products_variants (productID, variantProductID, title, active, priority)
                      VALUES (:parentProductID, :variantProductID, :title, :active, :priority)`;
-        const args = {parentProductID, variantProductID, title, active: status, priority};
+        const args = {parentProductID, variantProductID, title, active: status, priority: rows[0].nextPriority ?? 0};
         const [{insertId}] = await mysql2Pool.query<ResultSetHeader>(sql, args);
         const [_variant] = await loadVariants({productId: parentProductID, id: insertId});
         return _variant;

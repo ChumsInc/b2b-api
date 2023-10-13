@@ -6,6 +6,10 @@ import {Menu, MenuItem} from "b2b-types";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 import {Request, Response} from "express";
 
+export interface MenuItemRow extends Omit<MenuItem, 'requireLogin'> {
+    requireLogin?: 1 | 0;
+}
+
 const DEFAULT_MENU:Menu = {
     id: 0,
     title: '',
@@ -148,13 +152,14 @@ const loadItems = async (parentId: string|number, id: string|number|null = null)
                               class          AS className,
                               priority,
                               url,
-                              status
+                              status,
+                              require_login as requireLogin
                        FROM b2b_oscommerce.menu_items
                        WHERE parent_menu_id = :parentId
                          AND (item_id = :id OR ifnull(:id, '') = '')
                        ORDER BY priority, title`;
         const data = {parentId, id};
-        const [rows] = await mysql2Pool.query<(MenuItem & RowDataPacket)[]>(query, data);
+        const [rows] = await mysql2Pool.query<(MenuItemRow & RowDataPacket)[]>(query, data);
         const childMenus = await Promise.all(rows.filter(row => !!row.menuId).map((row) => {
             return loadMenus(row.menuId);
         }));
@@ -162,6 +167,7 @@ const loadItems = async (parentId: string|number, id: string|number|null = null)
             const [menu] = childMenus.map(([menu]) => menu).filter(menu => menu.id === row.menuId);
             return {
                 ...row,
+                requireLogin: !!row.requireLogin,
                 menu,
             }
         });
@@ -370,8 +376,3 @@ export const postItemSort = async (req:Request, res:Response) => {
         res.json({error: 'unknown error in postItemSort'});
     }
 };
-
-
-
-
-
