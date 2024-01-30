@@ -14,7 +14,9 @@ process.env.DEBUG = 'chums:*,pm2:*';
 const debug = Debug('chums:index');
 
 const app = express();
-app.use(helmet());
+app.use(helmet({
+    xXssProtection: false,
+}));
 app.set('trust proxy', 'loopback');
 app.use(compression());
 app.use(xFrameOptions());

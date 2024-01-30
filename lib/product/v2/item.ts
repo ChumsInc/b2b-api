@@ -36,6 +36,7 @@ export async function loadProductItems({
                               i.itemCode,
                               c.color_name                    AS colorName,
                               i.active                        AS status,
+                              i.active                        AS selfStatus,
                               ci.SuggestedRetailPrice         AS msrp,
                               ci.StandardUnitPrice            AS stdPrice,
                               ci.PriceCode                    AS priceCode,
@@ -98,6 +99,7 @@ export async function loadProductItems({
                     name: row.colorName,
                     swatchCode: additionalData.swatch_code || null
                 },
+                selfStatus: row.status === 1,
             }
         })
     } catch (err: unknown) {
