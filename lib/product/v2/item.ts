@@ -83,9 +83,7 @@ export async function loadProductItems({
             }
             if (additionalData.season_id) {
                 const [season] = seasons.filter(s => s.product_season_id === additionalData.season_id);
-                if (season.active) {
-                    additionalData.season = season;
-                }
+                additionalData.season = season ?? null;
             }
             return {
                 ...row,

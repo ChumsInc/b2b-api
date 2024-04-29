@@ -27,10 +27,11 @@ export type Product = BasicProduct | SellAsSelfProduct | SellAsVariantsProduct |
 const debug = Debug('chums:lib:product:v2:product');
 
 
-interface ProductListItemRow extends Omit<ProductListItem, 'redirectToParent' | 'availableForSale' | 'status'>, RowDataPacket {
+interface ProductListItemRow extends Omit<ProductListItem, 'redirectToParent' | 'availableForSale' | 'status' |  'seasonAvailable'>, RowDataPacket {
     redirectToParent: BooleanLike,
     availableForSale: BooleanLike,
     status: BooleanLike,
+    seasonAvailable: string|null;
 }
 
 interface ProductRow extends Omit<Product, 'availableForSale' | 'status' | 'canDome' | 'canScreenPrint' | 'redirectToParent' | 'additionalData' | 'season_available' | 'inactiveItem'>, RowDataPacket {
@@ -97,7 +98,8 @@ async function loadList({mfg = '%'}): Promise<ProductListItem[]> {
                               price.maxPrice,
                               cs.specials_new_products_price                     AS salePrice,
                               p.product_season_id,
-                              s.code                                             AS season_code
+                              s.code                                             AS season_code,
+                              JSON_EXTRACT(additional_data, '$.seasonAvailable') as seasonAvailable
                        FROM b2b_oscommerce.products p
                                 INNER JOIN b2b_oscommerce.products_description pd
                                            ON pd.products_id = p.products_id AND pd.language_id = 1
@@ -123,6 +125,7 @@ async function loadList({mfg = '%'}): Promise<ProductListItem[]> {
                 ...row,
                 redirectToParent: !!row.redirectToParent,
                 availableForSale: !!row.availableForSale,
+                seasonAvailable: row.seasonAvailable === 'true' || !row.product_season_id,
                 status: !!row.status,
             }
         });
@@ -244,7 +247,7 @@ export async function loadProduct({id, keyword, complete = false}: LoadProductPr
                                               AND w.ItemCode = ci.ItemCode
                                               AND w.WarehouseCode = ci.DefaultWarehouseCode
                                 LEFT JOIN b2b_oscommerce.product_seasons s
-                                          ON s.product_season_id = p.product_season_id AND s.active = 1
+                                          ON s.product_season_id = p.product_season_id
                        WHERE p.products_id = :id
                           OR p.products_keyword = :keyword`;
         const data = {id, keyword};

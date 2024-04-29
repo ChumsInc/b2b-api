@@ -3,6 +3,7 @@ import {mysql2Pool} from 'chums-local-modules';
 import {BooleanLike, ProductAdditionalData, ProductMixComponent, ProductMixVariant} from "b2b-types";
 import {RowDataPacket} from "mysql2";
 import {Request, Response} from "express";
+import {loadSeasons} from "./seasons.js";
 
 const debug = Debug('chums:lib:product:v2:mix');
 
@@ -60,8 +61,12 @@ export async function loadMix(id: number | string): Promise<ProductMixVariant | 
                                     c.color_code,
                                     c.color_name,
                                     (SELECT additionalData
-                                     FROM b2b_oscommerce.products_items i
-                                     WHERE i.itemCode = d.ItemCode
+                                     FROM b2b_oscommerce.products p 
+                                         INNER JOIN b2b_oscommerce.products_items i
+                                            on i.productsID = p.products_id
+                                     WHERE p.products_status = 1
+                                       
+                                         AND i.itemCode = d.ItemCode
                                      LIMIT 1)      AS additionalData
                              FROM b2b_oscommerce.products_mixes m
                                       INNER JOIN b2b_oscommerce.products_mixes_detail d
@@ -73,6 +78,7 @@ export async function loadMix(id: number | string): Promise<ProductMixVariant | 
         const data = {id};
         const [[mix]] = await mysql2Pool.query<ProductMixRow[]>(query, data);
         const [detail] = await mysql2Pool.query<ProductMixComponentRow[]>(queryDetail, data);
+        const seasons = await loadSeasons({});
 
         if (!mix) {
             return null;
@@ -83,6 +89,10 @@ export async function loadMix(id: number | string): Promise<ProductMixVariant | 
             let additionalData: ProductAdditionalData = {};
             try {
                 additionalData = JSON.parse(row.additionalData || '{}');
+                if (additionalData.season) {
+                    const [season] = seasons.filter(s => s.product_season_id === additionalData.season?.product_season_id);
+                    additionalData.season.active = season.active;
+                }
             } catch (err) {
             }
             return {
