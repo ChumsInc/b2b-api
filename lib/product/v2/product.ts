@@ -563,13 +563,14 @@ async function saveVariant(variant: ProductVariant): Promise<ProductVariant> {
         if (!variant.id) {
             return saveNewVariant(variant);
         }
-        const {id, status, priority, title} = variant;
+        const {id, status, priority, title, variantProductID} = variant;
         const sql = `UPDATE b2b_oscommerce.products_variants
                      SET title    = :title,
                          active   = :status,
-                         priority = :priority
+                         priority = :priority,
+                         variantProductID = :variantProductID
                      WHERE id = :id`;
-        const args = {id, title, status, priority};
+        const args = {id, title, status, priority, variantProductID};
         await mysql2Pool.query(sql, args);
         const [_variant] = await loadVariants({productId: variant.parentProductID, id: variant.id});
         return _variant;
