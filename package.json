@@ -13,7 +13,6 @@
     "version": "auto-changelog -p && git add CHANGELOG.md"
   },
   "dependencies": {
-    "bcryptjs": "2.x",
     "body-parser": "^1.19.0",
     "chums-local-modules": "github:ChumsInc/chums-local-modules",
     "compression": "^1.7.4",
@@ -24,12 +23,12 @@
     "express": "^4.17.1",
     "helmet": "^7.0.0",
     "mysql2": "^3.3.2",
-    "node-mysql": "0.4.x",
     "pug": "^3.0.2",
     "x-frame-options": "1.0.x"
   },
   "devDependencies": {
     "@tsconfig/node18": "^18.2.0",
+    "@types/cookie-parser": "^1.4.7",
     "@types/express": "^4.17.11",
     "@types/node": "^20.2.3",
     "auto-changelog": "^2.4.0",
