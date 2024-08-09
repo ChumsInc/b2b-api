@@ -1,7 +1,12 @@
-import Debug from 'debug';
-import { loadValidation, mysql2Pool } from 'chums-local-modules';
+import Debug from 'debug'
+import {loadValidation, mysql2Pool} from 'chums-local-modules';
+import type {ErrorReport, ErrorReportArg, ErrorReportRow} from "./error-reporting-types.d.ts";
+import {Request, Response} from 'express'
+
 const debug = Debug('chums:lib:error-reporting');
-async function logErrors(arg) {
+
+
+async function logErrors(arg:ErrorReportArg) {
     try {
         const sql = `INSERT INTO b2b.user_errors (ip_address, version, user_id, url, message, componentStack, debug,
                                                   user_agent, referrer)
@@ -19,8 +24,7 @@ async function logErrors(arg) {
             referrer: arg.referrer ?? null,
         };
         await mysql2Pool.query(sql, args);
-    }
-    catch (err) {
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("logErrors()", err.message);
             return Promise.reject(err);
@@ -29,7 +33,13 @@ async function logErrors(arg) {
         return Promise.reject(new Error('Error in logErrors()'));
     }
 }
-async function loadErrors({ ip, user_id, limit = 0, offset = 0 }) {
+
+async function loadErrors({ip, user_id, limit = 0, offset = 0}:{
+    ip?: string|null;
+    user_id?: string|number|null;
+    limit?: number|string;
+    offset?: number|string;
+}):Promise<ErrorReport[]> {
     try {
         limit = Number(limit) || 100;
         offset = Number(offset) || 0;
@@ -55,20 +65,18 @@ async function loadErrors({ ip, user_id, limit = 0, offset = 0 }) {
             limit: isNaN(limit) ? 100 : limit,
             offset: isNaN(offset) ? 0 : offset
         };
-        const [rows] = await mysql2Pool.query(sql, args);
+        const [rows] = await mysql2Pool.query<ErrorReportRow[]>(sql, args);
         return rows.map(row => {
-            let debug = null;
+            let debug:unknown = null
             try {
                 debug = !!row.debug ? JSON.parse(row.debug) : null;
-            }
-            catch (err) { }
+            } catch(err:unknown) {}
             return {
                 ...row,
                 debug
-            };
-        });
-    }
-    catch (err) {
+            }
+        })
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("loadErrors()", err.message);
             return Promise.reject(err);
@@ -77,7 +85,8 @@ async function loadErrors({ ip, user_id, limit = 0, offset = 0 }) {
         return Promise.reject(new Error('Error in loadErrors()'));
     }
 }
-export async function postError(req, res) {
+
+export async function postError(req:Request, res:Response) {
     try {
         const ip = req.ip;
         const user_agent = req.get('User-Agent');
@@ -87,16 +96,17 @@ export async function postError(req, res) {
             if (user?.profile?.user) {
                 req.body.user_id = user.profile.user.id;
             }
-        }
-        catch (err) { }
-        await logErrors({ ...req.body, ip, user_agent, referrer });
-        res.json({ logged: true });
-    }
-    catch (err) {
+        } catch(err) {}
+
+        await logErrors({...req.body, ip, user_agent, referrer});
+        res.json({logged: true});
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("postError()", err.message);
-            return res.json({ error: err.message, name: err.name });
+            return res.json({error: err.message, name: err.name});
         }
-        res.json({ error: 'unknown error in postError' });
+        res.json({error: 'unknown error in postError'});
     }
 }
+
+
