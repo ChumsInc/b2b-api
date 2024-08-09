@@ -152,10 +152,10 @@ export async function findProductUsage(keyword:string):Promise<ProductUsage[]> {
         });
     } catch(err:unknown) {
         if (err instanceof Error) {
-            console.debug("findProductUsage()", err.message);
+            debug("findProductUsage()", err.message);
             return Promise.reject(err);
         }
-        console.debug("findProductUsage()", err);
+        debug("findProductUsage()", err);
         return Promise.reject(new Error('Error in findProductUsage()'));
     }
 }
@@ -180,10 +180,10 @@ export async function findCategoryUsage(keyword:string):Promise<CategoryUsage[]>
         });
     } catch(err:unknown) {
         if (err instanceof Error) {
-            console.debug("findCategoryUsage()", err.message);
+            debug("findCategoryUsage()", err.message);
             return Promise.reject(err);
         }
-        console.debug("findCategoryUsage()", err);
+        debug("findCategoryUsage()", err);
         return Promise.reject(new Error('Error in findCategoryUsage()'));
     }
 }
@@ -211,10 +211,10 @@ export async function findMenuUsage(keyword:string):Promise<MenuUsage[]> {
 
     } catch(err:unknown) {
         if (err instanceof Error) {
-            console.debug("loadMenuUsage()", err.message);
+            debug("loadMenuUsage()", err.message);
             return Promise.reject(err);
         }
-        console.debug("loadMenuUsage()", err);
+        debug("loadMenuUsage()", err);
         return Promise.reject(new Error('Error in loadMenuUsage()'));
     }
 }

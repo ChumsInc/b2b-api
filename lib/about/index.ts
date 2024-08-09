@@ -27,10 +27,10 @@ export const aboutAPI = async (req:Request, res:Response) => {
         res.json({site: '/api', version});
     } catch(err) {
         if (err instanceof Error) {
-            console.debug("aboutAPI()", err.message);
+            debug("aboutAPI()", err.message);
             return Promise.reject(err);
         }
-        console.debug("aboutAPI()", err);
+        debug("aboutAPI()", err);
         return Promise.reject(new Error('Error in aboutAPI()'));
     }
 }

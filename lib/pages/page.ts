@@ -58,10 +58,10 @@ export const loadPages = async ({id = null, keyword = null}: {
         });
     } catch (err: unknown) {
         if (err instanceof Error) {
-            console.debug("loadPages()", err.message);
+            debug("loadPages()", err.message);
             return Promise.reject(err);
         }
-        console.debug("loadPages()", err);
+        debug("loadPages()", err);
         return Promise.reject(new Error('Error in loadPages()'));
     }
 };
@@ -78,10 +78,10 @@ export async function loadPage({id, keyword}: {
         return page ?? null;
     } catch (err) {
         if (err instanceof Error) {
-            console.debug("loadPage()", err.message);
+            debug("loadPage()", err.message);
             return Promise.reject(err);
         }
-        console.debug("loadPage()", err);
+        debug("loadPage()", err);
         return Promise.reject(new Error('Error in loadPage()'));
     }
 }
@@ -109,10 +109,10 @@ export const saveNewPage = async (body: ContentPage) => {
         return page;
     } catch (err: unknown) {
         if (err instanceof Error) {
-            console.debug("saveNewPage()", err.message);
+            debug("saveNewPage()", err.message);
             return Promise.reject(err);
         }
-        console.debug("saveNewPage()", err);
+        debug("saveNewPage()", err);
         return Promise.reject(new Error('Error in saveNewPage()'));
     }
 };
@@ -152,10 +152,10 @@ export const savePage = async (body: ContentPage) => {
         return page;
     } catch (err: unknown) {
         if (err instanceof Error) {
-            console.debug("savePage()", err.message);
+            debug("savePage()", err.message);
             return Promise.reject(err);
         }
-        console.debug("savePage()", err);
+        debug("savePage()", err);
         return Promise.reject(new Error('Error in savePage()'));
     }
 };
@@ -172,10 +172,10 @@ export const deletePage = async ({id}: {
         return await loadPages({});
     } catch (err: unknown) {
         if (err instanceof Error) {
-            console.debug("deletePage()", err.message);
+            debug("deletePage()", err.message);
             return Promise.reject(err);
         }
-        console.debug("deletePage()", err);
+        debug("deletePage()", err);
         return Promise.reject(new Error('Error in deletePage()'));
     }
 };

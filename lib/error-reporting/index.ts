@@ -109,4 +109,20 @@ export async function postError(req:Request, res:Response) {
     }
 }
 
-
+export async function getErrors(req:Request, res:Response) {
+    try {
+        const errors = await loadErrors({
+            ip: req.query.ip as string,
+            user_id: req.query.user_id as string,
+            offset: req.query.offset as string,
+            limit: req.query.limit as string,
+        })
+        res.json({errors});
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("getErrors()", err.message);
+            return res.json({error: err.message, name: err.name});
+        }
+        res.json({error: 'unknown error in getErrors'});
+    }
+}

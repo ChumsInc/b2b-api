@@ -460,7 +460,7 @@ async function loadVariants({productId, id}: LoadVariantsProps): Promise<Product
         const data = {productId, id};
         const [rows] = await mysql2Pool.query<VariantRow[]>(query, data);
 
-        const products = await Promise.all(rows.map(row => {
+        const products:(Product|undefined)[] = await Promise.all(rows.map(row => {
             const {variantProductID} = row;
             return loadProduct({id: variantProductID});
         }));

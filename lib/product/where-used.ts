@@ -69,10 +69,10 @@ export async function loadWhereUsed(productId:number|string|null, itemCode: stri
         return whereUsed;
     } catch (err: unknown) {
         if (err instanceof Error) {
-            console.debug("loadWhereUsed()", err.message);
+            debug("loadWhereUsed()", err.message);
             return Promise.reject(err);
         }
-        console.debug("loadWhereUsed()", err);
+        debug("loadWhereUsed()", err);
         return Promise.reject(new Error('Error in loadWhereUsed()'));
     }
 }

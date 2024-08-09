@@ -250,10 +250,10 @@ async function deleteMix(id: number | string): Promise<void> {
 
     } catch (err: unknown) {
         if (err instanceof Error) {
-            console.debug("deleteMix()", err.message);
+            debug("deleteMix()", err.message);
             return Promise.reject(err);
         }
-        console.debug("deleteMix()", err);
+        debug("deleteMix()", err);
         return Promise.reject(new Error('Error in deleteMix()'));
     }
 }

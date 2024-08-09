@@ -50,10 +50,10 @@ export async function loadPromoCodes({id, active, valid, promo_code}:LoadPromoCo
         })
     } catch(err:unknown) {
         if (err instanceof Error) {
-            console.debug("loadPromoCodes()", err.message);
+            debug("loadPromoCodes()", err.message);
             return Promise.reject(err);
         }
-        console.debug("loadPromoCodes()", err);
+        debug("loadPromoCodes()", err);
         return Promise.reject(new Error('Error in loadPromoCodes()'));
     }
 }
@@ -65,10 +65,10 @@ export const loadCurrentPromoCode = async ():Promise<PromoCode|null> => {
         return current ?? null;
     } catch(err:unknown) {
         if (err instanceof Error) {
-            console.debug("loadCurrentPromoCode()", err.message);
+            debug("loadCurrentPromoCode()", err.message);
             return Promise.reject(err);
         }
-        console.debug("loadCurrentPromoCode()", err);
+        debug("loadCurrentPromoCode()", err);
         return Promise.reject(new Error('Error in loadCurrentPromoCode()'));
     }
 }
