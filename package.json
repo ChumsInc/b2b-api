@@ -1,7 +1,7 @@
 {
   "name": "b2b-api",
   "description": "Chums B2B API",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "author": "steve montgomery <steve@chums.com>",
   "main": "index.js",
   "type": "module",
