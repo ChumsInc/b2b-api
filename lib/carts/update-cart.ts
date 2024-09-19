@@ -1,8 +1,6 @@
 import Debug from 'debug';
 import {mysql2Pool} from 'chums-local-modules';
 
-const debug = Debug('chums:lib:carts:update-cart');
-
 export async function updateCartHeader(id:number) {
     try {
         const sqlDetail = `
@@ -14,10 +12,8 @@ export async function updateCartHeader(id:number) {
         `
     } catch(err:unknown) {
         if (err instanceof Error) {
-            debug("updateCartHeader()", err.message);
             return Promise.reject(err);
         }
-        debug("updateCartHeader()", err);
         return Promise.reject(new Error('Error in updateCartHeader()'));
     }
 }
