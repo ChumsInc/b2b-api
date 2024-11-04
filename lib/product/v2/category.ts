@@ -41,8 +41,8 @@ export async function loadCategories({
                               status,
                               changefreq,
                               priority,
-                              JSON_EXTRACT(more_data, '$.css')                                                        AS css,
-                              JSON_EXTRACT(more_data, '$.lifestyle')                                                  AS lifestyle,
+                              JSON_VALUE(more_data, '$.css')                                                        AS css,
+                              JSON_VALUE(more_data, '$.lifestyle')                                                  AS lifestyle,
                               IFNULL(GREATEST(p.timestamp, (SELECT MAX(timestamp)
                                                             FROM b2b_oscommerce.category_pages_items
                                                             WHERE categorypage_id = p.categorypage_id)),

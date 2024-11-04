@@ -8,7 +8,6 @@
   "private": true,
   "scripts": {
     "start": "nodemon index.js",
-    "start-dev": "SET MYSQL_PORT=3307 && SET PORT=8001 && nodemon -L index.js",
     "test": "mocha --reporter-option maxDiffSize=0",
     "version": "auto-changelog -p && git add CHANGELOG.md"
   },
@@ -19,8 +18,9 @@
     "cookie-parser": "^1.4.5",
     "dayjs": "^1.11.10",
     "debug": "^4.1.1",
+    "decimal.js": "^10.4.3",
     "dotenv": "^16.0.1",
-    "express": "^4.17.1",
+    "express": "^4.21.0",
     "helmet": "^7.0.0",
     "mysql2": "^3.3.2",
     "pug": "^3.0.2",
@@ -29,7 +29,8 @@
   "devDependencies": {
     "@tsconfig/node18": "^18.2.0",
     "@types/cookie-parser": "^1.4.7",
-    "@types/express": "^4.17.11",
+    "@types/debug": "^4.1.12",
+    "@types/express": "^4.17.21",
     "@types/node": "^20.2.3",
     "auto-changelog": "^2.4.0",
     "b2b-types": "github:ChumsInc/b2b-types",

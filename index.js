@@ -23,7 +23,8 @@ app.use(bodyParser.urlencoded({extended: true}));
 app.use((req, res, next) => {
     res.locals.response = {};
     next();
-}, libRouter);
+})
+app.use(libRouter);
 
 app.use((req, res) => {
     if (!res.headersSent) {

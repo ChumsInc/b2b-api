@@ -117,7 +117,7 @@ async function loadList({mfg = '%'}): Promise<ProductListItem[]> {
                                 LEFT JOIN b2b_oscommerce.product_seasons s
                                           USING (product_season_id)
                        WHERE p.manufacturers_id LIKE :mfg
-                       ORDER BY pd.products_name`;
+                       ORDER BY pd.products_id`;
         const data = {mfg};
         const [rows] = await mysql2Pool.query<ProductListItemRow[]>(query, data);
         return rows.map(row => {
