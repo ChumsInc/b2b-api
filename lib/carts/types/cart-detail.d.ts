@@ -6,7 +6,6 @@ export interface B2BCartLine {
     salesOrderNo: string | null;
     lineKey: string | null;
     itemCode: string;
-    productType: string|null;
     itemType: string;
     priceLevel: string | null;
     commentText: string | null;
@@ -14,8 +13,6 @@ export interface B2BCartLine {
     unitOfMeasureConvFactor: string | number | null;
     quantityOrdered: number;
     unitPrice: string | number;
-    lineDiscountPercent: number|string;
-    discount: string; // Y|N
     extensionAmt: string | number;
     lineStatus: string | null;
     dateCreated: string;
@@ -39,14 +36,6 @@ export interface B2BCartProduct {
     colorCode: string | null;
     swatchCode: string | null;
     available: string | number | null;
-    inactiveItem: boolean;
-    upc: string|null;
-}
-
-export interface B2BCartSeason {
-    code: string|null;
-    itemAvailable: boolean;
-    productAvailable: boolean;
 }
 
 export interface SalesOrderDetail {
@@ -59,15 +48,12 @@ export interface SalesOrderDetail {
 
 export interface B2BCartDetail extends Omit<B2BCartLine, 'priceLevel' | 'productId' | 'productItemId' | 'quantityOrdered'
     | 'unitOfMeasure' | 'lineKey' | 'itemType'> {
-    cartProduct: B2BCartProduct;
-    season: B2BCartSeason;
-    itemCodeDesc: string;
     pricing: B2BCartPricing;
-    commentText: string;
+    cartProduct: B2BCartProduct;
+    itemCodeDesc: string | null;
+    commentText: string | null;
     unitOfMeasure: string | null;
-    unitOfMeasureConvFactor: number|string;
     quantityOrdered: string | number;
-    quantityAvailable: string|number|null;
     soDetail: SalesOrderDetail;
     dateUpdated: string;
 }

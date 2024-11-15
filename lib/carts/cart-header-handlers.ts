@@ -1,11 +1,10 @@
 import Debug from 'debug';
 import {loadCart} from "./load-cart.js";
 import {mysql2Pool} from "chums-local-modules";
-import {ResultSetHeader, RowDataPacket} from "mysql2";
+import {ResultSetHeader} from "mysql2";
 import {parseCustomerKey} from "./cart-utils.js";
 import type {CartActionProps, UpdateCartProps} from "./types/cart-action-props.d.ts";
 import type {B2BCart} from "./types/cart.d.ts";
-import Decimal from "decimal.js";
 
 const debug = Debug('chums:lib:carts:cart-header-handlers');
 
@@ -57,7 +56,7 @@ export async function createNewCart({
 }
 
 
-export async function updateCartHeader({userId, cartId, ...props}: UpdateCartProps): Promise<void> {
+export async function updateCartHeader({userId, cartId, ...props}: UpdateCartProps): Promise<unknown> {
     try {
         const cart = await loadCart({cartId, userId});
         if (!cart || !cart.header) {
@@ -81,7 +80,6 @@ export async function updateCartHeader({userId, cartId, ...props}: UpdateCartPro
             comment: props.comment ?? cart.header.comment,
             userId
         }
-        await mysql2Pool.query(sql, data);
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("updateCartHeader()", err.message);
@@ -120,42 +118,3 @@ export async function cancelCartHeader({cartId, userId}: CartActionProps): Promi
     }
 }
 
-export async function updateCartTotals(cartId:number|string): Promise<void> {
-    try {
-        interface DetailAmountRow extends RowDataPacket {
-            taxClass: string;
-            amount: string | number;
-        }
-
-        const sqlDetail = `SELECT taxClass,
-                                  SUM(quantityOrdered * unitPrice *
-                                      (1 + (IFNULL(lineDiscountPercent, 0) / 100))) AS amount
-                           FROM b2b.cart_detail
-                           WHERE cartHeaderId = :cartId
-                             AND lineStatus <> 'X'
-                             AND itemType <> '4'
-                           GROUP BY taxClass`
-        const [detail] = await mysql2Pool.query<DetailAmountRow[]>(sqlDetail, {cartId});
-        const [taxable] = detail.filter(row => row.taxClass === 'TX');
-        const [nontaxable] = detail.filter(row => row.taxClass !== 'TX');
-        const args = {
-            cartId,
-            taxableAmt: taxable?.amount ?? 0,
-            nonTaxableAmt: nontaxable?.amount ?? 0,
-            subTotalAmt: new Decimal(taxable?.amount ?? 0).add(nontaxable?.amount ?? 0).toString()
-        }
-        const sql = `UPDATE b2b.cart_header h
-                     SET taxableAmt    = :taxableAmt,
-                         nonTaxableAmt = :nonTaxableAmt,
-                         subTotalAmt   = :subTotalAmt
-                     WHERE id = :cartId`;
-        await mysql2Pool.query(sql, args);
-    } catch (err: unknown) {
-        if (err instanceof Error) {
-            console.debug("updateCartTotals()", err.message);
-            return Promise.reject(err);
-        }
-        console.debug("updateCartTotals()", err);
-        return Promise.reject(new Error('Error in updateCartTotals()'));
-    }
-}
