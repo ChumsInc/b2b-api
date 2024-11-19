@@ -1,6 +1,6 @@
 import Debug from 'debug';
 import {loadItemPricing, loadItemUnitOfMeasure, parseCustomerKey, parseCustomerPrice} from "./cart-utils.js";
-import {createNewCart} from "./cart-header-handlers.js";
+import {createNewCart, updateCartTotals} from "./cart-header-handlers.js";
 import {loadCart} from "./load-cart.js";
 import Decimal from "decimal.js";
 import {mysql2Pool} from "chums-local-modules";
@@ -88,6 +88,7 @@ export async function addToCart({
             extensionAmt: new Decimal(quantityOrdered).times(unitPrice ?? 0).toString()
         };
         await mysql2Pool.query(sql, args);
+        await updateCartTotals(cartId);
         return await loadCart({cartId, userId});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -106,7 +107,7 @@ export async function updateCartItem({
                                          customerKey,
                                          quantityOrdered,
                                          commentText
-                                     }: UpdateCartItemProps): Promise<B2BCart | null> {
+                                     }: UpdateCartItemProps): Promise<void | null> {
     try {
         const {arDivisionNo, customerNo} = await parseCustomerKey(customerKey);
         const item = await loadCartItem({userId, cartId, cartItemId});
@@ -130,7 +131,7 @@ export async function updateCartItem({
         }
 
         const sql = `UPDATE b2b.cart_detail
-                     SET quantityOrdered = :quanitityOrdered,
+                     SET quantityOrdered = :quantityOrdered,
                          unitPrice       = :unitPrice,
                          extensionAmt    = :extensionAmt,
                          commentText     = :commentText
@@ -145,7 +146,7 @@ export async function updateCartItem({
             commentText: commentText ?? item.commentText,
         }
         await mysql2Pool.query(sql, args);
-        return await loadCart({cartId, userId});
+        await updateCartTotals(cartId);
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("updateCartItem()", err.message);
@@ -157,16 +158,18 @@ export async function updateCartItem({
 }
 
 
-export async function removeCartItem({userId, cartId, cartItemId}: CartItemActionProps): Promise<B2BCart | null> {
+export async function removeCartItem({userId, cartId, cartItemId}: CartItemActionProps): Promise<void> {
     try {
         await loadCartItem({userId, cartId, cartItemId});
-        const sql = `DELETE
-                     FROM b2b.cart_detail
+        const sql = `UPDATE b2b.cart_detail
+                     SET lineStatus = 'X', 
+                         quantityOrdered = 0, 
+                         extensionAmt = 0
                      WHERE cartHeaderId = :cartId
                        AND id = :cartItemId`
         const args = {cartId, cartItemId};
         await mysql2Pool.query(sql, args);
-        return await loadCart({cartId, userId});
+        await updateCartTotals(cartId);
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("deleteCartItem()", err.message);
@@ -197,3 +200,4 @@ async function loadCartItem({userId, cartId, cartItemId}: LoadCartItemProps): Pr
         return Promise.reject(new Error('Error in loadCartItem()'));
     }
 }
+

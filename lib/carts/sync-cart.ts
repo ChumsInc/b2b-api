@@ -16,6 +16,7 @@ export interface SyncFromC2Props {
 }
 
 export interface SyncFromC2Response {
+    closed: number;
     header: number;
     detail: number;
     deletes: number;
@@ -26,6 +27,22 @@ export async function syncFromC2({
                                      customerKey,
                                  }: SyncFromC2Props): Promise<SyncFromC2Response> {
     try {
+        const sqlUpdateStatus = `
+            UPDATE b2b.cart_header h
+                INNER JOIN c2.SO_SalesOrderHistoryHeader so
+                ON so.SalesOrderNo = h.salesOrderNo AND so.Company = 'chums'
+            SET h.orderType   = so.OrderType,
+                h.orderStatus = so.OrderStatus
+            WHERE so.OrderType <> 'Q'
+              AND (
+                IFNULL(:cartId, '') = ''
+                    OR h.SalesOrderNo = (SELECT salesOrderNo FROM b2b.cart_header WHERE id = :cartId)
+                )
+              AND (
+                IFNULL(:customerKey, '') = ''
+                    OR CONCAT_WS('-', h.ARDivisionNo, h.CustomerNo, IFNULL(h.ShipToCode, '')) LIKE :customerKey
+                )
+        `;
         const sqlHeader = `INSERT INTO b2b.cart_header (salesOrderNo, orderType, orderStatus, arDivisionNo, customerNo,
                                                         shipToCode, salespersonDivisionNo, salespersonNo, customerPONo,
                                                         shipExpireDate, shipVia, promoCode, comment,
@@ -56,6 +73,7 @@ export async function syncFromC2({
                                   IFNULL(IFNULL(solu.UserID, solc.UserId), sohu.id)             AS updatedByUserId
                            FROM c2.SO_SalesOrderHeader h
                                     INNER JOIN c2.ar_customer c USING (Company, ARDivisionNo, CustomerNo)
+                                    LEFT JOIN b2b.cart_header ch ON ch.salesOrderNo = h.SalesOrderNo
                                     LEFT JOIN (SELECT UserId, l.SalesOrderNo
                                                FROM b2b.SalesOrderLog l
                                                         INNER JOIN c2.SO_SalesOrderHeader soh
@@ -93,7 +111,12 @@ export async function syncFromC2({
                              AND (IFNULL(:cartId, '') = '' OR
                                   h.SalesOrderNo = (SELECT salesOrderNo FROM b2b.cart_header WHERE id = :cartId))
                              AND (IFNULL(:customerKey, '') = '' OR
-                                  CONCAT_WS('-', h.ARDivisionNo, h.CustomerNo) = :customerKey)
+                                  CONCAT_WS('-', h.ARDivisionNo, h.CustomerNo, IFNULL(h.ShipToCode, '')) LIKE
+                                  :customerKey)
+                             AND (
+                               ISNULL(ch.dateUpdated)
+                                   OR ch.dateUpdated < DATE_ADD(h.DateUpdated, INTERVAL h.TimeUpdated * 3600 SECOND)
+                               )
                            ON DUPLICATE KEY UPDATE orderType             = h.OrderType,
                                                    orderStatus           = h.OrderStatus,
                                                    arDivisionNo          = h.ARDivisionNo,
@@ -115,12 +138,17 @@ export async function syncFromC2({
                                                    createdByUserId       = IFNULL(solc.UserID, sohu.id),
                                                    updatedByUseId        = IFNULL(solu.UserId, sohu.id)`;
         const sqlDetailPrep = `UPDATE b2b.cart_detail
-                               SET lineStatus = 'X'
-                               WHERE (IFNULL(:cartId, '') = '' OR cartHeaderId = :cartId)
-                                 AND (IFNULL(:customerKey, '') = '' OR cartHeaderId IN (SELECT id
-                                                                                        FROM b2b.cart_header
-                                                                                        WHERE customerKey LIKE :customerKey))
-                                 AND lineStatus = 'I'`
+                               SET lineStatus = '_'
+                               WHERE lineStatus = 'I'
+                                 AND (IFNULL(:cartId, '') = '' OR cartHeaderId = :cartId)
+                                 AND (
+                                   IFNULL(:customerKey, '') = ''
+                                       OR cartHeaderId IN (SELECT id
+                                                           FROM b2b.cart_header
+                                                           WHERE customerKey LIKE :customerKey
+                                                             AND orderType = 'Q'
+                                                             AND orderStatus NOT IN ('Z', 'C'))
+                                   )`
         const sqlDetail = `INSERT INTO b2b.cart_detail (cartHeaderId, productId, productItemId, salesOrderNo,
                                                         lineKey, itemCode, itemType, priceLevel, commentText,
                                                         unitOfMeasure, unitOfMeasureConvFactor, quantityOrdered,
@@ -149,9 +177,12 @@ export async function syncFromC2({
                                   h.dateUpdated
                            FROM b2b.cart_header h
                                     INNER JOIN c2.SO_SalesOrderDetail sod ON sod.SalesOrderNo = h.salesOrderNo
+                                    LEFT JOIN b2b.cart_detail cd
+                                              ON cd.cartHeaderId = h.id AND cd.lineKey = sod.LineKey
                                     LEFT JOIN b2b_oscommerce.item_code_to_product_id p ON p.itemCode = sod.ItemCode
                            WHERE (IFNULL(:cartId, 0) = 0 OR h.id = :cartId)
-                             AND (IFNULL(:customerKey, '') = '' OR h.customerKey = :customerKey)
+                             AND (IFNULL(:customerKey, '') = '' OR h.customerKey LIKE :customerKey)
+                             AND IFNULL(cd.lineStatus, '') <> 'X'
                            ON DUPLICATE KEY UPDATE productId               = JSON_VALUE(p.productIds, '$[0].productId'),
                                                    productItemId           = JSON_VALUE(p.productIds, '$[0].productItemId'),
                                                    itemCode                = sod.ItemCode,
@@ -169,31 +200,38 @@ export async function syncFromC2({
                                                    taxAmt                  = sod.TaxAmt,
                                                    taxRate                 = sod.TaxRate,
                                                    lineStatus              = 'I'`;
-        const sqlDetailClean = `DELETE
-                                FROM b2b.cart_detail
-                                WHERE lineStatus = 'X'
+        const sqlDetailClean = `UPDATE b2b.cart_detail
+                                SET lineStatus = 'X'
+                                WHERE lineStatus = '_'
                                   AND (IFNULL(:cartId, '') = '' OR cartHeaderId = :cartId)
-                                  AND (IFNULL(:customerKey, '') = '' OR cartHeaderId IN (SELECT id
-                                                                                         FROM b2b.cart_header
-                                                                                         WHERE customerKey LIKE :customerKey))
+                                  AND (
+                                    IFNULL(:customerKey, '') = ''
+                                        OR cartHeaderId IN (SELECT id
+                                                            FROM b2b.cart_header
+                                                            WHERE customerKey LIKE :customerKey)
+                                    )
         `;
         let b2bCartCustomerKey = customerKey ? `${customerKey}-%` : undefined;
 
         const updates: SyncFromC2Response = {
+            closed: 0,
             header: 0,
             detail: 0,
             deletes: 0,
         }
-        let [res] = await mysql2Pool.query<ResultSetHeader>(sqlHeader, {cartId, customerKey});
+        let [res] = await mysql2Pool.query<ResultSetHeader>(sqlUpdateStatus, {cartId, customerKey: b2bCartCustomerKey});
+        updates.closed = res.affectedRows;
+
+        [res] = await mysql2Pool.query<ResultSetHeader>(sqlHeader, {cartId, customerKey: b2bCartCustomerKey});
         updates.header = res.affectedRows;
 
         await mysql2Pool.query<ResultSetHeader>(sqlDetailPrep, {cartId, customerKey: b2bCartCustomerKey});
-        [res] = await mysql2Pool.query<ResultSetHeader>(sqlDetail, {cartId, customerKey});
+        [res] = await mysql2Pool.query<ResultSetHeader>(sqlDetail, {cartId, customerKey: b2bCartCustomerKey});
         updates.detail = res.affectedRows;
 
         [res] = await mysql2Pool.query<ResultSetHeader>(sqlDetailClean, {cartId, customerKey: b2bCartCustomerKey});
         updates.deletes = res.affectedRows;
-
+        // debug('syncFromC2()', customerKey, cartId, updates);
         return updates;
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -324,7 +362,7 @@ export async function syncFromSage(salesOrderNo: string): Promise<SyncFromSageRe
 export async function syncToSage(cartId: number): Promise<unknown> {
     try {
 
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             console.debug("syncToSage()", err.message);
             return Promise.reject(err);
@@ -334,13 +372,13 @@ export async function syncToSage(cartId: number): Promise<unknown> {
     }
 }
 
-export async function postSyncCarts(req: Request, res: Response):Promise<void> {
+export async function postSyncCarts(req: Request, res: Response): Promise<void> {
     try {
         const customerKey = req.query.customerKey as string ?? undefined;
         const cartId = req.query.id as string ?? undefined;
         const result = await syncFromC2({cartId, customerKey});
         res.json({...result});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postSyncCarts()", err.message);
             res.json({error: err.message, name: err.name});
@@ -350,7 +388,7 @@ export async function postSyncCarts(req: Request, res: Response):Promise<void> {
     }
 }
 
-export async function postSyncSage(req: Request, res: Response):Promise<void> {
+export async function postSyncSage(req: Request, res: Response): Promise<void> {
     try {
         const salesOrderNo = req.params.salesOrderNo;
         const response = await syncFromSage(salesOrderNo);

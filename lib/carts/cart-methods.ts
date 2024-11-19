@@ -1,23 +1,24 @@
 import Debug from "debug";
 import {NextFunction, Request, Response} from "express";
 import {addToCart, removeCartItem, updateCartItem} from "./cart-detail-handlers.js";
-import {cancelCartHeader, updateCartHeader} from "./cart-header-handlers.js";
+import {cancelCartHeader, updateCartHeader, updateCartTotals} from "./cart-header-handlers.js";
 import {loadCart, loadCarts} from "./load-cart.js";
 import type {AddToCartBody, UpdateCartHeaderBody, UpdateCartItemBody} from "./types/cart-action-props.d.ts";
-import {getUserId} from "./utils.js";
+import {getUserId, isUpdateCartItemBody, isUpdateCartItemsBody} from "./utils.js";
 import {syncFromC2} from "./sync-cart.js";
 
 const debug = Debug('chums:lib:carts:cart-methods');
 
 export async function getCart(req: Request, res: Response): Promise<void> {
     try {
+        const customerKey = req.params.customerKey;
         const cartId = req.params.cartId;
         const userId = getUserId(res);
         if (!userId) {
             res.status(401).json({error: 'Login is required'});
             return;
         }
-        await syncFromC2({cartId});
+        await syncFromC2({customerKey, cartId});
         const cart = await loadCart({cartId, userId});
         if (!cart) {
             res.status(404).json({error: 'Cart not found'});
@@ -66,7 +67,8 @@ export const putUpdateCart = async (req: Request, res: Response, next: NextFunct
             promoCode: req.body.promoCode ?? undefined,
             comment: req.body.comment ?? undefined,
         };
-        const cart = await updateCartHeader({userId, customerKey, cartId, ...body});
+        await updateCartHeader({userId, customerKey, cartId, ...body});
+        const cart = await loadCart({userId, cartId});
         res.json({cart});
     } catch(err:unknown) {
         if (err instanceof Error) {
@@ -125,13 +127,47 @@ export const putUpdateCartItem = async (req: Request, res: Response): Promise<vo
     try {
         const userId = res.locals.profile!.user.id;
         const {customerKey, cartId, cartItemId} = req.params;
-        const body: UpdateCartItemBody = {
-            quantityOrdered: req.body.quantityOrdered,
-            commentText: req.body.commentText ?? null,
+        if (isUpdateCartItemBody(req.body)) {
+            const body: UpdateCartItemBody = {
+                quantityOrdered: req.body.quantityOrdered,
+                commentText: req.body.commentText ?? null,
+            }
+            await updateCartItem({userId, cartId, cartItemId, customerKey, ...body});
         }
-        const cart = await updateCartItem({userId, cartId, cartItemId, customerKey, ...body});
+        const cart = await loadCart({cartId, userId});
         res.json({cart});
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("putUpdateCart()", err.message);
+            res.json({error: err.message, name: err.name});
+            return;
+        }
+        res.json({error: 'unknown error in putUpdateCart'});
+    }
+}
 
+export const putUpdateCartItems = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const userId = res.locals.profile!.user.id;
+        const {customerKey, cartId} = req.params;
+        if (isUpdateCartItemsBody(req.body)) {
+            for await (const item of req.body.items) {
+                if (isUpdateCartItemBody(item)) {
+                    if (item.quantityOrdered === 0) {
+                        await removeCartItem({userId, cartId, cartItemId: item.id, customerKey});
+                    } else {
+                        await updateCartItem({userId, cartId, cartItemId: item.id, customerKey, ...item});
+                    }
+                } else {
+                    debug('putUpdateCartItems() is not a cart item?', item, isUpdateCartItemBody(item));
+                }
+            }
+            await updateCartTotals(cartId);
+        } else {
+            debug('putUpdateCartItems()', isUpdateCartItemsBody(req.body), req.body);
+        }
+        const cart = await loadCart({cartId, userId});
+        res.json({cart});
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("putUpdateCart()", err.message);
@@ -146,7 +182,8 @@ export const deleteCartItem = async (req: Request, res: Response): Promise<void>
     try {
         const userId = res.locals.profile!.user.id;
         const {customerKey, cartId, cartItemId} = req.params;
-        const cart = await removeCartItem({userId, customerKey, cartId, cartItemId});
+        await removeCartItem({userId, customerKey, cartId, cartItemId});
+        const cart = await loadCart({cartId, userId});
         res.json({cart});
     } catch(err:unknown) {
         if (err instanceof Error) {

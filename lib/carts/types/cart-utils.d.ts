@@ -5,10 +5,11 @@ import {RowDataPacket} from "mysql2";
 import {B2BCartDetail} from "./cart-detail.d.ts";
 import {B2BCartHeader} from "./cart-header.d.ts";
 
-export interface B2BCartDetailRow extends RowDataPacket, Omit<B2BCartDetail, 'pricing' | 'cartProduct'|'soDetail'> {
+export interface B2BCartDetailRow extends RowDataPacket, Omit<B2BCartDetail, 'pricing' | 'cartProduct'|'soDetail'|'season'> {
     pricing: string;
     cartProduct: string;
     soDetail:string;
+    season: string;
 }
 
 export interface B2BCartHeaderRow extends RowDataPacket, Omit<B2BCartHeader, 'createdByUser', 'updatedByUser'> {

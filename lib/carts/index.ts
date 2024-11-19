@@ -7,7 +7,8 @@ import {
     getCarts,
     postAddToCart,
     putUpdateCart,
-    putUpdateCartItem
+    putUpdateCartItem,
+    putUpdateCartItems
 } from "./cart-methods.js";
 import {postSyncCarts, postSyncSage} from "./sync-cart.js";
 
@@ -25,6 +26,7 @@ cartsRouter.put('/:customerKey/:cartId.json', putUpdateCart);
 cartsRouter.delete('/:customerKey/:cartId.json', deleteCart);
 cartsRouter.post('/:customerKey/new/cart.json', postAddToCart);
 cartsRouter.post('/:customerKey/:cartId/cart.json', postAddToCart);
+cartsRouter.put('/:customerKey/:cartId/items.json', putUpdateCartItems);
 cartsRouter.put('/:customerKey/:cartId/:cartItemId.json', putUpdateCartItem);
 cartsRouter.delete('/:customerKey/:cartId/:cartItemId.json', deleteCartItem);
 
