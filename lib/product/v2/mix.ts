@@ -60,11 +60,7 @@ export async function loadMix(id: number | string): Promise<ProductMixVariant | 
                                     d.colorsId,
                                     c.color_code,
                                     c.color_name,
-                                    (SELECT JSON_EXTRACT(
-                                                    IFNULL(additionalData,
-                                                           JSON_OBJECT(
-                                                                   'image_filename', REPLACE(p.products_image, '?', i.colorCode)
-                                                           )), '$') AS additionalData
+                                    (SELECT additionalData
                                      FROM b2b_oscommerce.products p 
                                          INNER JOIN b2b_oscommerce.products_items i
                                             on i.productsID = p.products_id
