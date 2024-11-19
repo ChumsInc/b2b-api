@@ -3,6 +3,7 @@ import {Response} from 'express'
 import {getUserValidation, mysql2Pool} from "chums-local-modules";
 import Debug from "debug";
 import {RowDataPacket} from "mysql2";
+import {UpdateCartItemBody, UpdateCartItemsBody} from "./types/cart-action-props.js";
 
 const debug = Debug('chums:lib:carts:utils');
 
@@ -43,4 +44,15 @@ export async function loadUserIdFromSageUser(userKey: string): Promise<number | 
         debug("getUserIdFromSageUser()", err);
         return Promise.reject(new Error('Error in getUserIdFromSageUser()'));
     }
+}
+
+export function isUpdateCartItemsBody(body:Partial<UpdateCartItemBody>|UpdateCartItemBody|UpdateCartItemsBody|unknown): body is UpdateCartItemsBody {
+    return Array.isArray((body as UpdateCartItemsBody)?.items);
+}
+export function isUpdateCartItemBody(body:UpdateCartItemBody|UpdateCartItemsBody|unknown): body is UpdateCartItemBody {
+    if (isUpdateCartItemsBody(body)) {
+        return false;
+    }
+
+    return typeof body === 'object' && (body?.hasOwnProperty('quantityOrdered') ?? false)
 }

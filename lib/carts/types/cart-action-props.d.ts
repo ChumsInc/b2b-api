@@ -131,6 +131,9 @@ export interface AddToCartBody extends Pick<B2BCartDetail, 'itemCode' | 'unitOfM
 export type AddToCartProps = Omit<CartItemActionProps, 'cartItemId'> & AddToCartBody;
 export type UpdateCartProps = CartActionProps & UpdateCartHeaderBody;
 export type UpdateCartItemBody = Pick<B2BCartDetail, 'quantityOrdered'|'commentText'>;
+export interface UpdateCartItemsBody {
+    items: Pick<B2BCartDetail, 'id'|'quantityOrdered'|'commentText'>[];
+}
 
 export type UpdateCartHeaderBody = Partial<Pick<B2BCartHeader, 'shipToCode' | 'promoCode' | 'customerPONo' | 'comment'>>;
 
