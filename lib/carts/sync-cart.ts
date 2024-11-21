@@ -173,7 +173,7 @@ export async function syncFromC2({
                                   sod.TaxClass,
                                   sod.TaxAmt,
                                   sod.TaxRate,
-                                  'I'                                            AS lineStatus,
+                                  ifnull(cd.lineStatus, 'I')                                            AS lineStatus,
                                   h.dateUpdated
                            FROM b2b.cart_header h
                                     INNER JOIN c2.SO_SalesOrderDetail sod ON sod.SalesOrderNo = h.salesOrderNo
@@ -182,7 +182,7 @@ export async function syncFromC2({
                                     LEFT JOIN b2b_oscommerce.item_code_to_product_id p ON p.itemCode = sod.ItemCode
                            WHERE (IFNULL(:cartId, 0) = 0 OR h.id = :cartId)
                              AND (IFNULL(:customerKey, '') = '' OR h.customerKey LIKE :customerKey)
-                             AND IFNULL(cd.lineStatus, '') <> 'X'
+                             AND IFNULL(cd.lineStatus, '') = '_'
                            ON DUPLICATE KEY UPDATE productId               = JSON_VALUE(p.productIds, '$[0].productId'),
                                                    productItemId           = JSON_VALUE(p.productIds, '$[0].productItemId'),
                                                    itemCode                = sod.ItemCode,

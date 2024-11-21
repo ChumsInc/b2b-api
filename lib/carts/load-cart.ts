@@ -129,7 +129,7 @@ export async function loadCartDetail({cartId, userId}: LoadCartDetailProps): Pro
                                             JSON_VALUE(pi.additionalData, '$.image_filename'),
                                             p.products_image
                                              ),
-                                    'colorCode', pi.colorCode,
+                                    'colorCode', ifnull(pi.colorCode, p.products_default_color),
                                     'swatchCode', NULLIF(
                                             IFNULL(
                                                     NULLIF(JSON_VALUE(pi.additionalData, '$.swatch_code'), ''),

@@ -1,0 +1,101 @@
+html(style="font-family:sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%")
+    style(type="text/css").
+        th, td {padding: 5px; }
+body(style="margin: 0; max-width: 950px; margin: auto; font-family:&quot;Helvetica Neue&quot;" +
+        "Helvetica,Arial,sans-serif;font-size:14px;line-height:1.42857143;color:#333;background-color:#fff")
+    table(cellspacing="0" cellpadding="0" border="0" width="100%"
+            style="border-spacing:0;border-collapse:collapse; background-color: transparent; margin-top: 25px;")
+        tr: td(colspan="2" style="text-align: center;")
+            div(style="background-color: #fff;height: 15px;")
+                img.logo(src="https://b2b.chums.com/images/chums/chums-logo-badge-400px.png" alt="Chums Logo"
+                    style="width: 150px; height: auto;")
+            div(style="background-color: #fff;height: 35px;margin-bottom: 20px;")
+
+        tr: td(colspan="2")
+            h2(style="font-family: inherit; font-weight: 500; line-height: 1.1;color: inherit; font-size: 30px;").
+                Proposed Order
+            hr
+
+        tr
+            td(style="width:50%"): h3 Account: #{header.arDivisionNo}-#{header.customerNo}
+            td(style="width:50%"): h3 #{header.customerName}
+
+        tr: td(colspan="2"): hr
+
+        tr
+            td(style="width:50%; vertical-align: top;")
+                table(cellspacing="0" cellpadding="0" border="0" width="100%")
+                    tr
+                        th(style="padding: 5px; vertical-align: top; text-align:left;") Cart #
+                        td(style="padding: 5px; vertical-align: top;")= header.id
+                    tr
+                        th(style="padding: 5px; vertical-align: top;text-align:left;") Created
+                        td(style="padding: 5px; vertical-align: top;")= new Date(header.dateCreated).toLocaleDateString()
+                    tr
+                        th(style="padding: 5px; vertical-align: top;text-align:left;") Quote Expires
+                        td(style="padding: 5px; vertical-align: top;")= new Date(header.shipExpireDate).toLocaleDateString()
+                    tr
+                        th(style="padding: 5px; vertical-align: top;text-align:left;") Cart Name
+                        td(style="padding: 5px; vertical-align: top;")= header.customerPONo
+                        td(style="width:50%; vertical-align: top;")
+
+            td(style="width:50%; vertical-align: top;")
+                table(cellspacing="0" cellpadding="0" border="0" width="100%")
+                    tr
+                        th(style="padding: 5px; vertical-align: top;text-align:left;") ShipTo
+                        if header.shipToCode !== undefined
+                            td(style="padding: 5px; vertical-align: top;") #{header.shipToName}
+                        else
+                            td(style="padding: 5px; vertical-align: top;") [#{header.shipToCode}] #{header.shipToName}
+                    tr
+                        th(style="padding: 5px; vertical-align: top;text-align:left;") Address
+                        td(style="padding: 5px; vertical-align: top;"): address(style="font-style: normal;")
+                            | #{header.ShipToAddress1}
+                            | !{header.ShipToAddress2 === null ? '' : '<br>' + header.ShipToAddress2}
+                            | !{header.ShipToAddress3 === null ? '' : '<br>' + header.ShipToAddress3}
+                            br
+                            | #{header.ShipToCity}, #{header.ShipToState} #{header.ShipToZipCode}
+        tr: td(colspan="2")
+            table(cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top: 20px")
+                tr
+                    th(style="text-align:left; padding:5px; border-style: solid; border-color: #666; border-width: 1px 0") Item
+                    th(style="text-align:left; padding:5px; border-style: solid; border-color: #666; border-width: 1px 0") Image
+                    th(style="text-align:left; padding:5px;border-style: solid; border-color: #666; border-width: 1px 0") Description
+                    th(style="text-align:left; padding:5px;border-style: solid; border-color: #666; border-width: 1px 0") U/M
+                    th(style="text-align:right; padding:5px;border-style: solid; border-color: #666; border-width: 1px 0") Ordered
+                    th(style="text-align:right; padding:5px;border-style: solid; border-color: #666; border-width: 1px 0") Unit Price
+                    th(style="text-align:right; padding:5px;border-style: solid; border-color: #666; border-width: 1px 0") MSRP
+                    th(style="text-align:right; padding:5px;border-style: solid; border-color: #666; border-width: 1px 0") Item Price
+                    th(style="text-align:right; padding:5px;border-style: solid; border-color: #666; border-width: 1px 0") Ext Price
+                each row in detail
+                    tr(style="line-height: 2; vertical-align:top")
+                        if row.itemType === '4'
+                            td(style="padding:5px;" colspan=7)
+                                strong= row.commentText
+                            td(colspan=2)
+                        else
+                            td(style="padding:5px;")= row.itemCode
+                            td(style="padding:5px;")
+                                if row.itemType === '1' && row.image !== undefined
+                                    img(src=`https://b2b.chums.com/images/products/250/${row.image}`, style="max-width:80px; height: auto;")
+                            td(style="padding:5px;")= row.itemCodeDesc
+                            td(style="padding:5px;")= row.unitOfMeasure
+                            td(style="text-align:right;padding:5px")= row.quantityOrdered
+                            td(style="text-align:right;padding:5px")
+                                div= row.unitPrice
+                                if row.hasDiscount
+                                    div(style="color:#F00;font-style: italic;font-size: 85%")= `${row.lineDiscountPercent}% Off`
+                            td(style="text-align:right;padding:5px")= row.suggestedRetailPrice
+                            td(style="text-align:right;padding:5px")= row.itemPrice
+                            td(style="text-align:right;padding:5px")= row.extensionAmt
+                    if row.itemType !== '4' && row.CommentText !== null
+                        tr(style="line-height: 2;vertical-align:top"): td(colspan="2")
+                            td(colspan="5" style="font-style: italic;font-size: 85%; white-space: pre-wrap")= row.CommentText
+                            td(colspan="2")
+                tr
+                    td(colspan="4" style="border-top: 1px solid #666;"): h3 Total
+                    td(style="text-align:right; border-top: 1px solid #666;"): h3= itemCount
+                    td(colspan="4" style="text-align:right; border-top: 1px solid #666;"): h3= '$ ' + header.subTotalAmt
+
+
+

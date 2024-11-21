@@ -1,3 +1,9 @@
+export type B2BCartLine_New = 'N';
+export type B2BCartLine_Imported = 'I';
+export type B2BCartLine_Updated = 'U';
+export type B2BCartLine_Deleted = 'X';
+export type B2BCartLineStatus = B2BCartLine_New|B2BCartLine_Imported|B2BCartLine_Updated|B2BCartLine_Deleted;
+
 export interface B2BCartLine {
     id: number;
     cartHeaderId: number;
@@ -17,7 +23,7 @@ export interface B2BCartLine {
     lineDiscountPercent: number|string;
     discount: string; // Y|N
     extensionAmt: string | number;
-    lineStatus: string | null;
+    lineStatus: B2BCartLineStatus | null;
     dateCreated: string;
     dateUpdated: string;
     dateImported: string | null;
@@ -58,7 +64,7 @@ export interface SalesOrderDetail {
 }
 
 export interface B2BCartDetail extends Omit<B2BCartLine, 'priceLevel' | 'productId' | 'productItemId' | 'quantityOrdered'
-    | 'unitOfMeasure' | 'lineKey' | 'itemType'> {
+    | 'unitOfMeasure' | 'lineKey'> {
     cartProduct: B2BCartProduct;
     season: B2BCartSeason;
     itemCodeDesc: string;
@@ -70,4 +76,13 @@ export interface B2BCartDetail extends Omit<B2BCartLine, 'priceLevel' | 'product
     quantityAvailable: string|number|null;
     soDetail: SalesOrderDetail;
     dateUpdated: string;
+}
+
+export interface EmailDetailLine extends Pick<B2BCartDetail, 'itemCode'|'itemCodeDesc'|'unitOfMeasure'
+    |'quantityOrdered'|'lineDiscountPercent'|'commentText'|'extensionAmt'> {
+    image: string|null;
+    hasDiscount: boolean;
+    unitPrice: string;
+    itemPrice: string;
+    suggestedRetailPrice: string;
 }

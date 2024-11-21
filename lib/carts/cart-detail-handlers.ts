@@ -12,6 +12,7 @@ import type {
 } from "./types/cart-action-props.d.ts";
 import type {B2BCart} from "./types/cart.d.ts";
 import type {B2BCartDetail} from "./types/cart-detail.d.ts";
+import {B2BCartItemPrice, UnitOfMeasureLookup} from "./types/cart-utils.js";
 
 const debug = Debug('chums:lib:carts:cart-detail-handlers');
 
@@ -28,6 +29,7 @@ export async function addToCart({
                                     productId,
                                     productItemId,
                                     itemCode,
+                                    itemType,
                                     unitOfMeasure,
                                     quantityOrdered,
                                     commentText,
@@ -36,21 +38,28 @@ export async function addToCart({
     try {
         const {arDivisionNo, customerNo, shipToCode} = await parseCustomerKey(customerKey);
         let cart: B2BCart | null = null;
-        if (!quantityOrdered || Number.isNaN(quantityOrdered)) {
-            return Promise.reject(new Error('Invalid quantity to add to cart'))
-        }
+        let itemPricing:B2BCartItemPrice|null = null;
+        let unitPrice: string|number|null = null;
+        let uom: UnitOfMeasureLookup|null = null;
 
-        const itemPricing = await loadItemPricing({arDivisionNo, customerNo, itemCode, priceLevel});
-        if (!itemPricing) {
-            return Promise.reject(new Error("Item is either discontinued or inactive"));
-        }
+        debug('addToCart()', {itemCode, itemType, unitOfMeasure, quantityOrdered});
+        if (itemType !== '4') {
+            if (!quantityOrdered || Number.isNaN(quantityOrdered)) {
+                return Promise.reject(new Error('Invalid quantity to add to cart'))
+            }
 
-        const unitPrice = parseCustomerPrice(itemPricing);
-        if (itemPricing.ItemType !== '4' && !unitPrice) {
-            return Promise.reject(new Error('Invalid item pricing, see customer service for help.'));
-        }
+            itemPricing = await loadItemPricing({arDivisionNo, customerNo, itemCode, priceLevel});
+            if (!itemPricing) {
+                return Promise.reject(new Error("Item is either discontinued or inactive"));
+            }
 
-        const uom = await loadItemUnitOfMeasure(itemCode, unitOfMeasure)
+            unitPrice = parseCustomerPrice(itemPricing);
+            if (!unitPrice) {
+                return Promise.reject(new Error('Invalid item pricing, see customer service for help.'));
+            }
+
+            uom = await loadItemUnitOfMeasure(itemCode, unitOfMeasure)
+        }
 
         if (!cartId) {
             cart = await createNewCart({customerKey, userId, shipToCode});
@@ -71,22 +80,23 @@ export async function addToCart({
                      VALUES (:cartId, :productId, :productItemId, :salesOrderNo, NULL,
                              :itemCode, :itemType, :priceLevel, :commentText,
                              :unitOfMeasure, :unitOfMeasureConvFactor, :quantityOrdered,
-                             :unitPrice, :extensionAmt, '_')`
+                             :unitPrice, :extensionAmt, 'N')`
         const args = {
             cartId,
             productId,
             productItemId,
             salesOrderNo: cart.header.salesOrderNo,
             itemCode: itemCode,
-            itemType: itemPricing.ItemType,
-            priceLevel: itemPricing.CustomerPriceLevel,
+            itemType: itemPricing?.ItemType ?? itemType ?? null,
+            priceLevel: itemPricing?.CustomerPriceLevel ?? null,
             commentText,
             unitOfMeasure: unitOfMeasure ?? uom?.unitOfMeasure ?? 'EA',
-            unitOfMeasureConvFactor: uom?.unitOfMeasureConvFactor,
-            quantityOrdered,
+            unitOfMeasureConvFactor: uom?.unitOfMeasureConvFactor ?? 1,
+            quantityOrdered: quantityOrdered ?? 0,
             unitPrice: unitPrice,
-            extensionAmt: new Decimal(quantityOrdered).times(unitPrice ?? 0).toString()
+            extensionAmt: new Decimal(quantityOrdered ?? 0).times(unitPrice ?? 0).toString()
         };
+        debug('addToCart()', args);
         await mysql2Pool.query(sql, args);
         await updateCartTotals(cartId);
         return await loadCart({cartId, userId});
@@ -111,38 +121,43 @@ export async function updateCartItem({
     try {
         const {arDivisionNo, customerNo} = await parseCustomerKey(customerKey);
         const item = await loadCartItem({userId, cartId, cartItemId});
-        if (!quantityOrdered || Number.isNaN(quantityOrdered)) {
-            return Promise.reject(new Error('Invalid quantity to update to cart'))
-        }
+        let itemPricing:B2BCartItemPrice|null = null;
+        let unitPrice:number|string|null = null;
+        if (item.itemType !== '4') {
+            if (!quantityOrdered || Number.isNaN(quantityOrdered)) {
+                return Promise.reject(new Error('Invalid quantity to update to cart'))
+            }
 
-        const itemPricing = await loadItemPricing({
-            arDivisionNo,
-            customerNo,
-            itemCode: item.itemCode,
-            priceLevel: item.pricing.priceLevel
-        });
-        if (!itemPricing) {
-            return Promise.reject(new Error("Item is either discontinued or inactive"));
-        }
+            itemPricing = await loadItemPricing({
+                arDivisionNo,
+                customerNo,
+                itemCode: item.itemCode,
+                priceLevel: item.pricing.priceLevel
+            });
+            if (!itemPricing) {
+                return Promise.reject(new Error("Item is either discontinued or inactive"));
+            }
 
-        const unitPrice = parseCustomerPrice(itemPricing);
-        if (!unitPrice) {
-            return Promise.reject(new Error('Invalid item pricing, see customer service for help.'));
+            unitPrice = parseCustomerPrice(itemPricing);
+            if (!unitPrice) {
+                return Promise.reject(new Error('Invalid item pricing, see customer service for help.'));
+            }
         }
 
         const sql = `UPDATE b2b.cart_detail
                      SET quantityOrdered = :quantityOrdered,
                          unitPrice       = :unitPrice,
                          extensionAmt    = :extensionAmt,
-                         commentText     = :commentText
+                         commentText     = :commentText,
+                         lineStatus      = 'U'
                      WHERE cartHeaderId = :cartId
                        AND id = :cartItemId`;
         const args = {
             cartId,
             cartItemId,
             quantityOrdered: quantityOrdered,
-            unitPrice: unitPrice,
-            extensionAmt: new Decimal(quantityOrdered).times(unitPrice).toString(),
+            unitPrice: unitPrice ?? 0,
+            extensionAmt: new Decimal(quantityOrdered).times(unitPrice ?? 0).toString(),
             commentText: commentText ?? item.commentText,
         }
         await mysql2Pool.query(sql, args);
@@ -162,9 +177,9 @@ export async function removeCartItem({userId, cartId, cartItemId}: CartItemActio
     try {
         await loadCartItem({userId, cartId, cartItemId});
         const sql = `UPDATE b2b.cart_detail
-                     SET lineStatus = 'X', 
-                         quantityOrdered = 0, 
-                         extensionAmt = 0
+                     SET lineStatus      = 'X',
+                         quantityOrdered = 0,
+                         extensionAmt    = 0
                      WHERE cartHeaderId = :cartId
                        AND id = :cartItemId`
         const args = {cartId, cartItemId};

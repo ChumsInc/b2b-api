@@ -107,6 +107,7 @@ export const postAddToCart = async (req: Request, res: Response): Promise<void> 
             productId: req.body.productId ?? null,
             productItemId: req.body.productItemId ?? null,
             itemCode: req.body.itemCode,
+            itemType: req.body.itemType ?? '1',
             unitOfMeasure: req.body.unitOfMeasure,
             quantityOrdered: req.body.quantityOrdered,
             commentText: req.body.commentText ?? '',
@@ -153,7 +154,11 @@ export const putUpdateCartItems = async (req: Request, res: Response): Promise<v
         if (isUpdateCartItemsBody(req.body)) {
             for await (const item of req.body.items) {
                 if (isUpdateCartItemBody(item)) {
-                    if (item.quantityOrdered === 0) {
+                    if (item.itemType !== '4' && item.quantityOrdered === 0) {
+                        // remove item line
+                        await removeCartItem({userId, cartId, cartItemId: item.id, customerKey});
+                    } else if (item.itemType === '4' && item.commentText.trim() === '') {
+                        // remove comment line
                         await removeCartItem({userId, cartId, cartItemId: item.id, customerKey});
                     } else {
                         await updateCartItem({userId, cartId, cartItemId: item.id, customerKey, ...item});

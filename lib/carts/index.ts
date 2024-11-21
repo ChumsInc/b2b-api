@@ -11,6 +11,7 @@ import {
     putUpdateCartItems
 } from "./cart-methods.js";
 import {postSyncCarts, postSyncSage} from "./sync-cart.js";
+import {getCartEmailHTML, getCartEmailJSON, getCartEmailText, sendCartEmail} from "./cart-mailer.js";
 
 const cartsRouter = Router();
 cartsRouter.use(validateUser);
@@ -26,6 +27,10 @@ cartsRouter.put('/:customerKey/:cartId.json', putUpdateCart);
 cartsRouter.delete('/:customerKey/:cartId.json', deleteCart);
 cartsRouter.post('/:customerKey/new/cart.json', postAddToCart);
 cartsRouter.post('/:customerKey/:cartId/cart.json', postAddToCart);
+cartsRouter.get('/:customerKey/:cartId/email.html', getCartEmailHTML);
+cartsRouter.get('/:customerKey/:cartId/email.json', getCartEmailJSON);
+cartsRouter.get('/:customerKey/:cartId/email.txt', getCartEmailText);
+cartsRouter.post('/:customerKey/:cartId/email.json', sendCartEmail);
 cartsRouter.put('/:customerKey/:cartId/items.json', putUpdateCartItems);
 cartsRouter.put('/:customerKey/:cartId/:cartItemId.json', putUpdateCartItem);
 cartsRouter.delete('/:customerKey/:cartId/:cartItemId.json', deleteCartItem);

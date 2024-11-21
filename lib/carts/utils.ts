@@ -24,6 +24,16 @@ export function getUserId(res: Response): number | null {
     return validation?.profile?.user?.id ?? null;
 }
 
+export function getUserEmail(res: Response): string | null {
+    const validation = getUserValidation(res);
+    return validation?.profile?.user?.email ?? null;
+}
+
+export function getUserName(res: Response): string | null {
+    const validation = getUserValidation(res);
+    return validation?.profile?.user?.name ?? null;
+}
+
 interface UserIdFromSageRow extends RowDataPacket {
     id: number;
 }
@@ -56,3 +66,5 @@ export function isUpdateCartItemBody(body:UpdateCartItemBody|UpdateCartItemsBody
 
     return typeof body === 'object' && (body?.hasOwnProperty('quantityOrdered') ?? false)
 }
+
+
