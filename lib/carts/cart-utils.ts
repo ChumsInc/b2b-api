@@ -133,18 +133,22 @@ export async function loadItemPricing({
     }
 }
 
-export function parseCustomerPrice(pricing:B2BCartItemPrice):number|string|null {
+export function parseCustomerPrice(pricing:B2BCartItemPrice, uom:UnitOfMeasureLookup|null):number|string|null {
     switch (pricing.PricingMethod) {
         case 'O':
-            return new Decimal(pricing.DiscountMarkup1 ?? 0).toString();
+            return new Decimal(pricing.DiscountMarkup1 ?? 0).times(uom?.unitOfMeasureConvFactor ?? 1).toString();
         case 'P':
-            return new Decimal(pricing.StandardUnitPrice).sub(pricing.DiscountMarkup1 ?? 0).toString();
+            return new Decimal(pricing.StandardUnitPrice).sub(pricing.DiscountMarkup1 ?? 0)
+                .times(uom?.unitOfMeasureConvFactor ?? 1).toString();
         case 'C':
-            return new Decimal(pricing.StandardUnitCost).add(pricing.DiscountMarkup1 ?? 0).toString();
+            return new Decimal(pricing.StandardUnitCost).add(pricing.DiscountMarkup1 ?? 0)
+                .times(uom?.unitOfMeasureConvFactor ?? 1).toString();
         case 'D':
-            return new Decimal(pricing.StandardUnitPrice).times(new Decimal(100).sub(pricing.DiscountMarkup1 ?? 0).div(100)).toString();
+            return new Decimal(pricing.StandardUnitPrice).times(new Decimal(100).sub(pricing.DiscountMarkup1 ?? 0).div(100))
+                .times(uom?.unitOfMeasureConvFactor ?? 1).toString();
         case 'M':
-            return new Decimal(pricing.StandardUnitCost).times(new Decimal(100).add(pricing.DiscountMarkup1 ?? 0).div(100)).toString();
+            return new Decimal(pricing.StandardUnitCost).times(new Decimal(100).add(pricing.DiscountMarkup1 ?? 0).div(100))
+                .times(uom?.unitOfMeasureConvFactor ?? 1).toString();
     }
 
     if (new Decimal(pricing.StandardUnitPrice).eq(0)) {

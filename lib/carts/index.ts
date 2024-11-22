@@ -21,6 +21,7 @@ cartsRouter.get('/sync.json', validateRole(['cs', 'sales', 'web_admin']), postSy
 cartsRouter.post('/sync/:salesOrderNo.json', validateRole(['cs', 'sales', 'web_admin']), postSyncSage);
 
 cartsRouter.get('/list.json', validateRole(['cs', 'sales', 'web_admin']), getCarts);
+
 cartsRouter.get('/:customerKey.json', getCarts);
 cartsRouter.get('/:customerKey/:cartId.json', getCart);
 cartsRouter.put('/:customerKey/:cartId.json', putUpdateCart);

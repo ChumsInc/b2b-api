@@ -38,11 +38,10 @@ export async function addToCart({
     try {
         const {arDivisionNo, customerNo, shipToCode} = await parseCustomerKey(customerKey);
         let cart: B2BCart | null = null;
-        let itemPricing:B2BCartItemPrice|null = null;
-        let unitPrice: string|number|null = null;
-        let uom: UnitOfMeasureLookup|null = null;
+        let itemPricing: B2BCartItemPrice | null = null;
+        let unitPrice: string | number | null = null;
+        let uom: UnitOfMeasureLookup | null = null;
 
-        debug('addToCart()', {itemCode, itemType, unitOfMeasure, quantityOrdered});
         if (itemType !== '4') {
             if (!quantityOrdered || Number.isNaN(quantityOrdered)) {
                 return Promise.reject(new Error('Invalid quantity to add to cart'))
@@ -53,12 +52,12 @@ export async function addToCart({
                 return Promise.reject(new Error("Item is either discontinued or inactive"));
             }
 
-            unitPrice = parseCustomerPrice(itemPricing);
+            uom = await loadItemUnitOfMeasure(itemCode, unitOfMeasure)
+            unitPrice = parseCustomerPrice(itemPricing, uom);
             if (!unitPrice) {
                 return Promise.reject(new Error('Invalid item pricing, see customer service for help.'));
             }
 
-            uom = await loadItemUnitOfMeasure(itemCode, unitOfMeasure)
         }
 
         if (!cartId) {
@@ -121,8 +120,8 @@ export async function updateCartItem({
     try {
         const {arDivisionNo, customerNo} = await parseCustomerKey(customerKey);
         const item = await loadCartItem({userId, cartId, cartItemId});
-        let itemPricing:B2BCartItemPrice|null = null;
-        let unitPrice:number|string|null = null;
+        let itemPricing: B2BCartItemPrice | null = null;
+        let unitPrice: number | string | null = null;
         if (item.itemType !== '4') {
             if (!quantityOrdered || Number.isNaN(quantityOrdered)) {
                 return Promise.reject(new Error('Invalid quantity to update to cart'))
@@ -137,8 +136,11 @@ export async function updateCartItem({
             if (!itemPricing) {
                 return Promise.reject(new Error("Item is either discontinued or inactive"));
             }
-
-            unitPrice = parseCustomerPrice(itemPricing);
+            const uom: UnitOfMeasureLookup = {
+                unitOfMeasure: item.unitOfMeasure,
+                unitOfMeasureConvFactor: item.unitOfMeasureConvFactor
+            };
+            unitPrice = parseCustomerPrice(itemPricing, uom);
             if (!unitPrice) {
                 return Promise.reject(new Error('Invalid item pricing, see customer service for help.'));
             }
@@ -177,9 +179,9 @@ export async function removeCartItem({userId, cartId, cartItemId}: CartItemActio
     try {
         await loadCartItem({userId, cartId, cartItemId});
         const sql = `UPDATE b2b.cart_detail
-                     SET lineStatus      = 'X',
+                     SET lineStatus = 'X',
                          quantityOrdered = 0,
-                         extensionAmt    = 0
+                         extensionAmt = 0
                      WHERE cartHeaderId = :cartId
                        AND id = :cartItemId`
         const args = {cartId, cartItemId};
