@@ -49,7 +49,7 @@ export async function loadProductItems({
                               if(ci.InactiveItem = 'Y', 1, 0) AS inactiveItem,
                               w.buffer,
                               ci.UDF_UPC                      AS upc,
-                              ifnull(i.additionalData, '{}')  AS additionalData,
+                              JSON_EXTRACT(ifnull(i.additionalData, '{}'), '$')  AS additionalData,
                               i.timestamp,
                               ia.ItemStatus                   as productStatus
                        FROM b2b_oscommerce.products_items i
