@@ -2,10 +2,17 @@ import Debug from "debug";
 import {NextFunction, Request, Response} from "express";
 import {addToCart, removeCartItem, updateCartItem} from "./cart-detail-handlers.js";
 import {cancelCartHeader, updateCartHeader, updateCartTotals} from "./cart-header-handlers.js";
-import {loadCart, loadCarts} from "./load-cart.js";
-import type {AddToCartBody, UpdateCartHeaderBody, UpdateCartItemBody} from "./types/cart-action-props.d.ts";
+import {loadCart, loadCartHeader, loadCustomerCarts} from "./load-cart.js";
+import type {
+    AddToCartBody,
+    AddToNewCartProps,
+    UpdateCartHeaderBody,
+    UpdateCartItemBody
+} from "./types/cart-action-props.d.ts";
 import {getUserId, isUpdateCartItemBody, isUpdateCartItemsBody} from "./utils.js";
 import {syncFromC2} from "./sync-cart.js";
+import {B2BCart} from "./types/cart.js";
+import {duplicateSalesOrder} from "./duplicate-sales-order.js";
 
 const debug = Debug('chums:lib:carts:cart-methods');
 
@@ -35,7 +42,7 @@ export async function getCart(req: Request, res: Response): Promise<void> {
     }
 }
 
-export async function getCarts(req: Request, res: Response) {
+export async function getCartsList(req: Request, res: Response) {
     try {
         let customerKey = req.params.customerKey;
         const userId = getUserId(res);
@@ -44,15 +51,36 @@ export async function getCarts(req: Request, res: Response) {
             return;
         }
         await syncFromC2({customerKey});
-        const carts = await loadCarts({customerKey, userId});
+        const carts = await loadCartHeader({customerKey, userId});
         res.json({carts})
     } catch (err: unknown) {
         if (err instanceof Error) {
-            console.debug("getCarts()", err.message);
+            debug("getCartsList()", err.message);
             return Promise.reject(err);
         }
-        console.debug("getCarts()", err);
-        return Promise.reject(new Error('Error in getCarts()'));
+        debug("getCartsList()", err);
+        return Promise.reject(new Error('Error in getCartsList()'));
+    }
+}
+
+export async function getCustomerCarts(req: Request, res: Response) {
+    try {
+        const customerKey = req.params.customerKey;
+        const userId = getUserId(res);
+        if (!userId) {
+            res.status(401).json({error: 'Login is required'});
+            return;
+        }
+        await syncFromC2({customerKey});
+        const carts = await loadCustomerCarts({userId, customerKey});
+        res.json({carts})
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("getCustomerCarts()", err.message);
+            return Promise.reject(err);
+        }
+        debug("getCustomerCarts()", err);
+        return Promise.reject(new Error('Error in getCustomerCarts()'));
     }
 }
 
@@ -85,7 +113,7 @@ export const deleteCart = async (req: Request, res: Response):Promise<void> => {
         const userId = res.locals.profile!.user.id;
         const {customerKey, cartId} = req.params;
         await cancelCartHeader({userId, customerKey, cartId});
-        const carts = await loadCarts({userId, customerKey});
+        const carts = await loadCartHeader({userId, customerKey});
         res.json({carts});
     } catch(err:unknown) {
         if (err instanceof Error) {
@@ -112,7 +140,19 @@ export const postAddToCart = async (req: Request, res: Response): Promise<void> 
             quantityOrdered: req.body.quantityOrdered,
             commentText: req.body.commentText ?? '',
         }
-        const cart = await addToCart({userId, cartId, customerKey, ...body});
+        let cart:B2BCart | null;
+        if (!cartId) {
+            cart = await addToCart({
+                userId,
+                cartId: null,
+                customerKey,
+                ...body,
+                customerPONo: req.body.customerPONo ?? '',
+                shipToCode: req.body.shipToCode ?? undefined,
+            });
+        } else {
+            cart = await addToCart({userId, cartId, customerKey, ...body});
+        }
         res.json({cart});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -197,5 +237,23 @@ export const deleteCartItem = async (req: Request, res: Response): Promise<void>
             return;
         }
         res.json({error: 'unknown error in deleteCartItem'});
+    }
+}
+
+export const postDuplicateSalesOrder = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const userId = res.locals.profile!.user.id;
+        const {customerKey, salesOrderNo} = req.params;
+        const cartName = req.body.cartName ?? null;
+        const shipToCode = req.body.shipToCode ?? null;
+        const cart = await duplicateSalesOrder({userId, customerKey, salesOrderNo, cartName, shipToCode});
+        res.json({cart});
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("duplicateSalesOrder()", err.message);
+            res.json({error: err.message, name: err.name});
+            return;
+        }
+        res.json({error: 'unknown error in duplicateSalesOrder'});
     }
 }

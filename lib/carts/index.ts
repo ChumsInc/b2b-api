@@ -4,8 +4,9 @@ import {
     deleteCart,
     deleteCartItem,
     getCart,
-    getCarts,
-    postAddToCart,
+    getCartsList,
+    getCustomerCarts,
+    postAddToCart, postDuplicateSalesOrder,
     putUpdateCart,
     putUpdateCartItem,
     putUpdateCartItems
@@ -20,12 +21,13 @@ cartsRouter.post('/sync.json', validateRole(['cs', 'sales', 'web_admin']), postS
 cartsRouter.get('/sync.json', validateRole(['cs', 'sales', 'web_admin']), postSyncCarts);
 cartsRouter.post('/sync/:salesOrderNo.json', validateRole(['cs', 'sales', 'web_admin']), postSyncSage);
 
-cartsRouter.get('/list.json', validateRole(['cs', 'sales', 'web_admin']), getCarts);
+cartsRouter.get('/list.json', validateRole(['cs', 'sales', 'web_admin']), getCartsList);
 
-cartsRouter.get('/:customerKey.json', getCarts);
+cartsRouter.get('/:customerKey.json', getCustomerCarts);
 cartsRouter.get('/:customerKey/:cartId.json', getCart);
 cartsRouter.put('/:customerKey/:cartId.json', putUpdateCart);
 cartsRouter.delete('/:customerKey/:cartId.json', deleteCart);
+cartsRouter.post('/:customerKey/duplicate/:salesOrderNo.json', postDuplicateSalesOrder);
 cartsRouter.post('/:customerKey/new/cart.json', postAddToCart);
 cartsRouter.post('/:customerKey/:cartId/cart.json', postAddToCart);
 cartsRouter.get('/:customerKey/:cartId/email.html', getCartEmailHTML);

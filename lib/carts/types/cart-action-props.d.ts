@@ -19,9 +19,15 @@ export type CartAction =
     | 'update';
 
 
-export interface CartActionProps extends Partial<Pick<B2BCartHeader, 'shipToCode'>> {
+export interface CartActionProps extends Partial<Pick<B2BCartHeader, 'shipToCode'|'customerPONo'>> {
     userId: string | number;
     cartId: string | number;
+    customerKey: string;
+}
+
+export interface NewCartActionProps extends Partial<Pick<B2BCartHeader, 'shipToCode'|'customerPONo'>> {
+    userId: string | number;
+    cartId: null;
     customerKey: string;
 }
 
@@ -129,18 +135,20 @@ export interface AddToCartBody extends Pick<B2BCartDetail, 'itemCode' | 'unitOfM
 }
 
 export type AddToCartProps = Omit<CartItemActionProps, 'cartItemId'> & AddToCartBody;
+export type AddToNewCartProps = Omit<CartItemActionProps, 'cartItemId'|'cartId'> & AddToCartBody & NewCartActionProps;
 export type UpdateCartProps = CartActionProps & UpdateCartHeaderBody;
-export type UpdateCartItemBody = Pick<B2BCartDetail, 'quantityOrdered'|'commentText'>;
+export type UpdateCartItemBody = Pick<B2BCartDetail, 'quantityOrdered' | 'commentText'>;
+
 export interface UpdateCartItemsBody {
-    items: Pick<B2BCartDetail, 'id'|'quantityOrdered'|'commentText'|'itemType'>[];
+    items: Pick<B2BCartDetail, 'id' | 'quantityOrdered' | 'commentText' | 'itemType'>[];
 }
 
 export type UpdateCartHeaderBody = Partial<Pick<B2BCartHeader, 'shipToCode' | 'promoCode' | 'customerPONo' | 'comment'>>;
 
 export type UpdateCartItemProps = CartItemActionProps & UpdateCartItemBody;
 
-export type LoadCartItemProps = Required<Pick<CartItemActionProps, 'userId'|'cartId'|'cartItemId'>>
+export type LoadCartItemProps = Required<Pick<CartItemActionProps, 'userId' | 'cartId' | 'cartItemId'>>
 
 export type LoadCartsProps = Partial<CartActionProps> & Required<Pick<CartActionProps, 'userId'>>;
-export type LoadCartProps = Required<Pick<CartActionProps, 'userId'|'cartId'>>;
+export type LoadCartProps = Required<Pick<CartActionProps, 'userId' | 'cartId'>>;
 export type LoadCartDetailProps = Pick<CartActionProps, 'cartId' | 'userId'>;

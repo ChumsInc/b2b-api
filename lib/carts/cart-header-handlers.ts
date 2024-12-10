@@ -13,20 +13,22 @@ export async function createNewCart({
                                         userId,
                                         customerKey,
                                         shipToCode,
+                                        customerPONo,
                                     }: Omit<CartActionProps, 'cartId'>): Promise<B2BCart | null> {
     try {
         const {arDivisionNo, customerNo} = await parseCustomerKey(customerKey);
         const sql = `INSERT INTO b2b.cart_header (orderType, orderStatus, arDivisionNo, customerNo, shipToCode,
-                                                  salespersonDivisionNo, salespersonNo,
+                                                  salespersonDivisionNo, salespersonNo, taxSchedule,
                                                   customerPONo, shipExpireDate, shipVia, promoCode, comment,
                                                   subTotalAmt, createdByUserId, updatedByUseId)
-                     SELECT '_'                                                       AS orderType,
+                     SELECT 'Q'                                                       AS orderType,
                             'N'                                                       AS orderStatus,
                             c.ARDivisionNo                                            AS arDivisionNo,
                             c.CustomerNo                                              AS customerNo,
                             st.ShipToCode                                             AS shipToCode,
                             IFNULL(st.SalespersonDivisionNo, c.SalespersonDivisionNo) AS salespersonDivisionNo,
                             IFNULL(st.SalespersonNo, c.SalespersonNo)                 AS salespersonNo,
+                            c.TaxSchedule                                             AS taxSchedule,
                             :customerPONo                                             AS customerPONo,
                             DATE_ADD(NOW(), INTERVAL 12 MONTH)                        AS shipExpireDate,
                             c.ShipMethod                                              AS shipVia,
@@ -43,7 +45,7 @@ export async function createNewCart({
                      WHERE c.Company = 'chums'
                        AND c.ARDivisionNo = :arDivisionNo
                        AND c.CustomerNo = :customerNo`;
-        const args = {arDivisionNo, customerNo, shipToCode, userId}
+        const args = {arDivisionNo, customerNo, shipToCode, userId, customerPONo}
         const [result] = await mysql2Pool.query<ResultSetHeader>(sql, args);
         return await loadCart({cartId: result.insertId, userId})
     } catch (err: unknown) {
@@ -107,9 +109,7 @@ export async function cancelCartHeader({cartId, userId}: CartActionProps): Promi
                          updatedByUseId = :userId
                      WHERE id = :cartId`;
         const data = {userId, cartId};
-        if (cart.header.salesOrderNo && cart.header.orderType === 'Q') {
-            // @TODO: post to /sage/b2b/cart-quote.php to delete quote
-        }
+        await mysql2Pool.query(sql, data);
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("cancelCartHeader()", err.message);
@@ -120,7 +120,7 @@ export async function cancelCartHeader({cartId, userId}: CartActionProps): Promi
     }
 }
 
-export async function updateCartTotals(cartId:number|string): Promise<void> {
+export async function updateCartTotals(cartId: number | string): Promise<void> {
     try {
         interface DetailAmountRow extends RowDataPacket {
             taxClass: string;
@@ -152,10 +152,10 @@ export async function updateCartTotals(cartId:number|string): Promise<void> {
         await mysql2Pool.query(sql, args);
     } catch (err: unknown) {
         if (err instanceof Error) {
-            console.debug("updateCartTotals()", err.message);
+            debug("updateCartTotals()", err.message);
             return Promise.reject(err);
         }
-        console.debug("updateCartTotals()", err);
+        debug("updateCartTotals()", err);
         return Promise.reject(new Error('Error in updateCartTotals()'));
     }
 }

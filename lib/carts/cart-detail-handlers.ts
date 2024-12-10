@@ -5,7 +5,9 @@ import {loadCart} from "./load-cart.js";
 import Decimal from "decimal.js";
 import {mysql2Pool} from "chums-local-modules";
 import type {
+    AddToCartBody,
     AddToCartProps,
+    AddToNewCartProps,
     CartItemActionProps,
     LoadCartItemProps,
     UpdateCartItemProps
@@ -16,52 +18,29 @@ import {B2BCartItemPrice, UnitOfMeasureLookup} from "./types/cart-utils.js";
 
 const debug = Debug('chums:lib:carts:cart-detail-handlers');
 
-
 /**
  * Add an item to the cart, price is calculated based on Customer, Item, or Price Code pricing.
  *
  * <em>priceLevel value can be used to override the default customer price level from AR_Customer</em>
  */
+export async function addToCart(props: AddToCartProps): Promise<B2BCart | null>;
+export async function addToCart(props: AddToNewCartProps): Promise<B2BCart | null>;
 export async function addToCart({
                                     userId,
                                     cartId,
                                     customerKey,
-                                    productId,
-                                    productItemId,
-                                    itemCode,
-                                    itemType,
-                                    unitOfMeasure,
-                                    quantityOrdered,
-                                    commentText,
-                                    priceLevel,
-                                }: AddToCartProps): Promise<B2BCart | null> {
+                                    customerPONo,
+                                    shipToCode,
+                                    ...itemProps
+                                }: AddToCartProps | AddToNewCartProps): Promise<B2BCart | null> {
     try {
-        const {arDivisionNo, customerNo, shipToCode} = await parseCustomerKey(customerKey);
-        let cart: B2BCart | null = null;
-        let itemPricing: B2BCartItemPrice | null = null;
-        let unitPrice: string | number | null = null;
-        let uom: UnitOfMeasureLookup | null = null;
-
-        if (itemType !== '4') {
-            if (!quantityOrdered || Number.isNaN(quantityOrdered)) {
-                return Promise.reject(new Error('Invalid quantity to add to cart'))
-            }
-
-            itemPricing = await loadItemPricing({arDivisionNo, customerNo, itemCode, priceLevel});
-            if (!itemPricing) {
-                return Promise.reject(new Error("Item is either discontinued or inactive"));
-            }
-
-            uom = await loadItemUnitOfMeasure(itemCode, unitOfMeasure)
-            unitPrice = parseCustomerPrice(itemPricing, uom);
-            if (!unitPrice) {
-                return Promise.reject(new Error('Invalid item pricing, see customer service for help.'));
-            }
-
+        const customer = await parseCustomerKey(customerKey);
+        if (customer.shipToCode) {
+            shipToCode = customer.shipToCode;
         }
-
+        let cart: B2BCart | null;
         if (!cartId) {
-            cart = await createNewCart({customerKey, userId, shipToCode});
+            cart = await createNewCart({customerKey, userId, shipToCode, customerPONo});
         } else {
             cart = await loadCart({cartId, userId});
         }
@@ -69,35 +48,8 @@ export async function addToCart({
         if (!cart) {
             return Promise.reject(new Error('Error retrieving cart'));
         }
-
-
+        await addItemsToCart(cart, [itemProps]);
         cartId = cart.header.id;
-        const sql = `INSERT INTO b2b.cart_detail (cartHeaderId, productId, productItemId, salesOrderNo, lineKey,
-                                                  itemCode, itemType, priceLevel, commentText,
-                                                  unitOfMeasure, unitOfMeasureConvFactor, quantityOrdered,
-                                                  unitPrice, extensionAmt, lineStatus)
-                     VALUES (:cartId, :productId, :productItemId, :salesOrderNo, NULL,
-                             :itemCode, :itemType, :priceLevel, :commentText,
-                             :unitOfMeasure, :unitOfMeasureConvFactor, :quantityOrdered,
-                             :unitPrice, :extensionAmt, 'N')`
-        const args = {
-            cartId,
-            productId,
-            productItemId,
-            salesOrderNo: cart.header.salesOrderNo,
-            itemCode: itemCode,
-            itemType: itemPricing?.ItemType ?? itemType ?? null,
-            priceLevel: itemPricing?.CustomerPriceLevel ?? null,
-            commentText,
-            unitOfMeasure: unitOfMeasure ?? uom?.unitOfMeasure ?? 'EA',
-            unitOfMeasureConvFactor: uom?.unitOfMeasureConvFactor ?? 1,
-            quantityOrdered: quantityOrdered ?? 0,
-            unitPrice: unitPrice,
-            extensionAmt: new Decimal(quantityOrdered ?? 0).times(unitPrice ?? 0).toString()
-        };
-        debug('addToCart()', args);
-        await mysql2Pool.query(sql, args);
-        await updateCartTotals(cartId);
         return await loadCart({cartId, userId});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -106,6 +58,72 @@ export async function addToCart({
         }
         debug("addToCart()", err);
         return Promise.reject(new Error('Error in addToCart()'));
+    }
+}
+
+export async function addItemsToCart(cart: B2BCart, items: AddToCartBody[]): Promise<void> {
+    try {
+        const {arDivisionNo, customerNo} = cart.header
+        for await (const item of items) {
+            let itemPricing: B2BCartItemPrice | null = null;
+            let unitPrice: string | number | null = null;
+            let uom: UnitOfMeasureLookup | null = null;
+
+            if (item.itemType !== '4') {
+                if (!item.quantityOrdered || Number.isNaN(item.quantityOrdered)) {
+                    return Promise.reject(new Error('Invalid quantity to add to cart'))
+                }
+
+                itemPricing = await loadItemPricing({
+                    arDivisionNo,
+                    customerNo,
+                    itemCode: item.itemCode,
+                    priceLevel: item.priceLevel
+                });
+                if (!itemPricing) {
+                    return Promise.reject(new Error("Item is either discontinued or inactive"));
+                }
+
+                uom = await loadItemUnitOfMeasure(item.itemCode, item.unitOfMeasure)
+                unitPrice = parseCustomerPrice(itemPricing, uom);
+                if (!unitPrice) {
+                    return Promise.reject(new Error('Invalid item pricing, see customer service for help.'));
+                }
+
+            }
+            const sql = `INSERT INTO b2b.cart_detail (cartHeaderId, productId, productItemId, salesOrderNo, lineKey,
+                                                      itemCode, itemType, priceLevel, commentText,
+                                                      unitOfMeasure, unitOfMeasureConvFactor, quantityOrdered,
+                                                      unitPrice, extensionAmt, lineStatus)
+                         VALUES (:cartId, :productId, :productItemId, :salesOrderNo, NULL,
+                                 :itemCode, :itemType, :priceLevel, :commentText,
+                                 :unitOfMeasure, :unitOfMeasureConvFactor, :quantityOrdered,
+                                 :unitPrice, :extensionAmt, 'N')`
+            const args = {
+                cartId: cart.header.id,
+                productId: item.productId,
+                productItemId: item.productItemId,
+                salesOrderNo: cart.header.salesOrderNo,
+                itemCode: item.itemCode,
+                itemType: itemPricing?.ItemType ?? item.itemType ?? null,
+                priceLevel: itemPricing?.CustomerPriceLevel ?? null,
+                commentText: item.commentText,
+                unitOfMeasure: item.unitOfMeasure ?? uom?.unitOfMeasure ?? 'EA',
+                unitOfMeasureConvFactor: uom?.unitOfMeasureConvFactor ?? 1,
+                quantityOrdered: item.quantityOrdered ?? 0,
+                unitPrice: unitPrice,
+                extensionAmt: new Decimal(item.quantityOrdered ?? 0).times(unitPrice ?? 0).toString()
+            };
+            await mysql2Pool.query(sql, args);
+        }
+        await updateCartTotals(cart.header.id);
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("addItemsToCart()", err.message);
+            return Promise.reject(err);
+        }
+        debug("addItemsToCart()", err);
+        return Promise.reject(new Error('Error in addItemsToCart()'));
     }
 }
 
@@ -177,14 +195,14 @@ export async function updateCartItem({
 
 export async function removeCartItem({userId, cartId, cartItemId}: CartItemActionProps): Promise<void> {
     try {
-        await loadCartItem({userId, cartId, cartItemId});
+        const item = await loadCartItem({userId, cartId, cartItemId});
         const sql = `UPDATE b2b.cart_detail
-                     SET lineStatus = 'X',
+                     SET lineStatus = :lineStatus,
                          quantityOrdered = 0,
                          extensionAmt = 0
                      WHERE cartHeaderId = :cartId
                        AND id = :cartItemId`
-        const args = {cartId, cartItemId};
+        const args = {cartId, cartItemId, lineStatus: item.soDetail?.lineKey ? 'U' : 'X'};
         await mysql2Pool.query(sql, args);
         await updateCartTotals(cartId);
     } catch (err: unknown) {

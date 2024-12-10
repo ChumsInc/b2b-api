@@ -113,6 +113,7 @@ export async function syncFromC2({
                              AND (IFNULL(:customerKey, '') = '' OR
                                   CONCAT_WS('-', h.ARDivisionNo, h.CustomerNo, IFNULL(h.ShipToCode, '')) LIKE
                                   :customerKey)
+                             AND (ifnull(ch.orderStatus, '') not in ('X', 'Z'))
                              AND (
                                ISNULL(ch.dateUpdated)
                                    OR ch.dateUpdated < DATE_ADD(h.DateUpdated, INTERVAL h.TimeUpdated * 3600 SECOND)
@@ -124,10 +125,8 @@ export async function syncFromC2({
                                                    shipToCode            = h.ShipToCode,
                                                    salespersonDivisionNo = h.SalespersonDivisionNo,
                                                    salespersonNo         = h.SalespersonNo,
-                                                   customerPONo          = h.CustomerPONo,
                                                    shipExpireDate        = h.ShipExpireDate,
                                                    shipVia               = h.ShipVia,
-                                                   promoCode             = h.UDF_PROMO_DEAL,
                                                    comment               = h.Comment,
                                                    taxableAmt            = h.TaxableAmt,
                                                    nonTaxableAmt         = h.NonTaxableAmt,
@@ -147,7 +146,7 @@ export async function syncFromC2({
                                                            FROM b2b.cart_header
                                                            WHERE customerKey LIKE :customerKey
                                                              AND orderType = 'Q'
-                                                             AND orderStatus NOT IN ('Z', 'C'))
+                                                             AND orderStatus NOT IN ('X', 'Z', 'C'))
                                    )`
         const sqlDetail = `INSERT INTO b2b.cart_detail (cartHeaderId, productId, productItemId, salesOrderNo,
                                                         lineKey, itemCode, itemType, priceLevel, commentText,
@@ -364,10 +363,10 @@ export async function syncToSage(cartId: number): Promise<unknown> {
 
     } catch (err: unknown) {
         if (err instanceof Error) {
-            console.debug("syncToSage()", err.message);
+            debug("syncToSage()", err.message);
             return Promise.reject(err);
         }
-        console.debug("syncToSage()", err);
+        debug("syncToSage()", err);
         return Promise.reject(new Error('Error in syncToSage()'));
     }
 }

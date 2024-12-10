@@ -155,19 +155,24 @@ export async function buildCartEmailData(arg:BuildCartEmailProps):Promise<EmailC
                 itemCodeDesc,
                 image: line.cartProduct.image ?? null,
                 unitOfMeasure: unitOfMeasure ?? 'N/A',
-                quantityOrdered: numeral(quantityOrdered).format('0,0'),
-                unitPrice: numeral(unitPrice).format('0,0.00'),
-                itemPrice: numeral(itemPrice).format('0,0.00'),
-                hasDiscount: new Decimal(lineDiscountPercent).gt(0),
-                lineDiscountPercent: numeral(lineDiscountPercent).format('0'),
+                quantityOrdered: line.itemType === '4' ? 0 : numeral(quantityOrdered).format('0,0'),
+                unitPrice: line.itemType === '4' ? 'N/A' : numeral(unitPrice).format('0,0.00'),
+                itemPrice: line.itemType === '4' ? 'N/A' : numeral(itemPrice).format('0,0.00'),
+                hasDiscount: line.itemType === '4' ? false : new Decimal(lineDiscountPercent).gt(0),
+                lineDiscountPercent: line.itemType === '4' ? 0 : numeral(lineDiscountPercent).format('0'),
                 commentText,
-                extensionAmt: numeral(extensionAmt).format('0,0.00'),
-                suggestedRetailPrice: line.pricing.suggestedRetailPrice ? numeral(line.pricing.suggestedRetailPrice).format('0,0.00') : 'N/A'
+                extensionAmt: line.itemType === '4' ? 0 : numeral(extensionAmt).format('0,0.00'),
+                suggestedRetailPrice: line.itemType === '4'
+                    ? 'N/A'
+                    : (line.pricing.suggestedRetailPrice
+                        ? numeral(line.pricing.suggestedRetailPrice).format('0,0.00')
+                        : 'N/A'
+                    )
             }
         })
         const itemCount = cart.detail
             .filter(line => line.itemType === '1')
-            .map(line => new Decimal(line.quantityOrdered).times(line.unitOfMeasureConvFactor))
+            .map(line => new Decimal(line.quantityOrdered ?? 0).times(line.unitOfMeasureConvFactor ?? 1))
             .reduce((a, b) => a.add(b), new Decimal(0))
             .toNumber();
         cart.header.subTotalAmt = numeral(cart.header.subTotalAmt).format('0,0.00');

@@ -155,7 +155,7 @@ export function parseCustomerPrice(pricing:B2BCartItemPrice, uom:UnitOfMeasureLo
         return null;
     }
 
-    return pricing.StandardUnitPrice;
+    return new Decimal(pricing.StandardUnitPrice).times(uom?.unitOfMeasureConvFactor ?? 1).toString();
 }
 
 export interface LoadCartCustomerProps {
@@ -178,10 +178,10 @@ export async function loadCartCustomerPriceLevel(props: LoadCartCustomerProps): 
         return rows[0]?.PriceLevel ?? null;
     } catch (err: unknown) {
         if (err instanceof Error) {
-            console.debug("()", err.message);
+            debug("()", err.message);
             return Promise.reject(err);
         }
-        console.debug("()", err);
+        debug("()", err);
         return Promise.reject(new Error('Error in ()'));
     }
 }
