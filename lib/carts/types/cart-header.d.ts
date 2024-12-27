@@ -4,6 +4,12 @@ export type CartType = SalesOrderType | '_';
 
 export type B2BUserInfo = Pick<UserProfile, 'id' | 'email' | 'name' | 'accountType' | 'company'>;
 
+export interface CartPrintStatus {
+    userId: number;
+    printed: boolean;
+    timestamp: string;
+}
+
 export interface B2BCartHeader extends Partial<Omit<SalesOrderHeader, 'SalesOrderNo' | 'OrderType' | 'OrderStatus'
     | 'ARDivisionNo' | 'CustomerNo' | 'ShipToCode' | 'SalespersonDivisionNo' | 'SalespersonNo' | 'CustomerPONo'
     | 'ShipExpireDate' | 'ShipVia' | 'UDF_PROMO_DEAL' | 'Comment'>> {
@@ -32,4 +38,6 @@ export interface B2BCartHeader extends Partial<Omit<SalesOrderHeader, 'SalesOrde
     dateUpdated: string;
     updatedByUser: B2BUserInfo | null;
     dateImported: string | null;
+    importedByUser: B2BUserInfo | null;
+    printed:CartPrintStatus[]
 }

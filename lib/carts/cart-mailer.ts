@@ -3,7 +3,7 @@ import Debug from "debug";
 import {loadCart} from "./load-cart.js";
 import {getUserEmail, getUserId, getUserName} from "./utils.js";
 import {syncFromC2} from "./sync-cart.js";
-import Decimal from "decimal.js";
+import {Decimal} from "decimal.js";
 import {EmailDetailLine} from "./types/cart-detail.js";
 import numeral from "numeral";
 import {B2BCartHeader} from "./types/cart-header.js";
@@ -137,8 +137,8 @@ export async function buildCartEmailData(arg:BuildCartEmailProps):Promise<EmailC
             return null;
         }
         const detail: EmailDetailLine[] = cart.detail.map(line => {
-            const unitPrice = new Decimal(1).sub(new Decimal(line.lineDiscountPercent).div(100)).times(new Decimal(line.unitPrice).div(line.unitOfMeasureConvFactor ?? 1));
-            const itemPrice = new Decimal(1).sub(new Decimal(line.lineDiscountPercent).div(100)).times(line.unitPrice);
+            const unitPrice = new Decimal(1).sub(new Decimal(line.lineDiscountPercent ?? 0).div(100)).times(new Decimal(line.unitPrice ?? 0).div(line.unitOfMeasureConvFactor ?? 1));
+            const itemPrice = new Decimal(1).sub(new Decimal(line.lineDiscountPercent ?? 0).div(100)).times(line.unitPrice ?? 0);
             const {
                 itemCode,
                 itemType,
@@ -183,7 +183,7 @@ export async function buildCartEmailData(arg:BuildCartEmailProps):Promise<EmailC
         };
     } catch(err:unknown) {
         if (err instanceof Error) {
-            debug("buildCartEmailData()", err.message);
+            debug("buildCartEmailData()", err.message,  err.stack);
             return Promise.reject(err);
         }
         debug("buildCartEmailData()", err);

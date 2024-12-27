@@ -1,6 +1,6 @@
 import {RowDataPacket} from "mysql2";
 import {mysql2Pool} from "chums-local-modules";
-import Decimal from "decimal.js";
+import {Decimal} from "decimal.js";
 import Debug from "debug";
 import type {B2BCartItemPrice, B2BCustomer, UnitOfMeasureLookup} from "./types/cart-utils.d.ts";
 import {AddToCartProps} from "./types/cart-action-props.js";

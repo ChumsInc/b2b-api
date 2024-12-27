@@ -2,17 +2,18 @@ import {Router} from 'express';
 import {validateRole, validateUser} from "chums-local-modules";
 import {
     deleteCart,
-    deleteCartItem,
-    getCart,
+    deleteCartItem, deleteCartPrinted,
+    getCart, getCartOrder,
     getCartsList,
-    getCustomerCarts,
-    postAddToCart, postDuplicateSalesOrder,
+    getCustomerCarts, getOrdersList,
+    postAddToCart, postCartPrinted, postDuplicateSalesOrder,
     putUpdateCart,
     putUpdateCartItem,
     putUpdateCartItems
 } from "./cart-methods.js";
 import {postSyncCarts, postSyncSage} from "./sync-cart.js";
 import {getCartEmailHTML, getCartEmailJSON, getCartEmailText, sendCartEmail} from "./cart-mailer.js";
+import {getCartUser} from "./cart-user.js";
 
 const cartsRouter = Router();
 cartsRouter.use(validateUser);
@@ -22,6 +23,11 @@ cartsRouter.get('/sync.json', validateRole(['cs', 'sales', 'web_admin']), postSy
 cartsRouter.post('/sync/:salesOrderNo.json', validateRole(['cs', 'sales', 'web_admin']), postSyncSage);
 
 cartsRouter.get('/list.json', validateRole(['cs', 'sales', 'web_admin']), getCartsList);
+cartsRouter.get('/orders.json', validateRole(['cs', 'sales', 'web_admin']), getOrdersList);
+cartsRouter.get('/orders/:cartId.json', validateRole(['cs', 'sales', 'web_admin']), getCartOrder);
+cartsRouter.post('/orders/:cartId/printed.json', validateRole(['cs', 'sales', 'web_admin']), postCartPrinted);
+cartsRouter.delete('/orders/:cartId/printed.json', validateRole(['cs', 'sales', 'web_admin']), deleteCartPrinted);
+cartsRouter.get('/user/:userId.json', validateRole(['cs', 'sales', 'web_admin']), getCartUser);
 
 cartsRouter.get('/:customerKey.json', getCustomerCarts);
 cartsRouter.get('/:customerKey/:cartId.json', getCart);

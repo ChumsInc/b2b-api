@@ -1,7 +1,7 @@
 import Debug from 'debug';
 import {apiFetchJSON, mysql2Pool} from "chums-local-modules";
 import {SalesOrderDetailLine} from "b2b-types";
-import Decimal from "decimal.js";
+import {Decimal} from "decimal.js";
 import {dbDate, dbDateTimeFormat, loadUserIdFromSageUser} from "./utils.js";
 import {Request, Response} from 'express'
 import {ResultSetHeader} from "mysql2";
@@ -33,7 +33,8 @@ export async function syncFromC2({
                 ON so.SalesOrderNo = h.salesOrderNo AND so.Company = 'chums'
             SET h.orderType   = so.OrderType,
                 h.orderStatus = so.OrderStatus
-            WHERE so.OrderType <> 'Q'
+            WHERE so.OrderStatus <> 'Q'
+              AND (h.orderStatus <> so.OrderStatus OR h.orderType <> so.OrderType)
               AND (
                 IFNULL(:cartId, '') = ''
                     OR h.SalesOrderNo = (SELECT salesOrderNo FROM b2b.cart_header WHERE id = :cartId)
@@ -148,60 +149,71 @@ export async function syncFromC2({
                                                              AND orderType = 'Q'
                                                              AND orderStatus NOT IN ('X', 'Z', 'C'))
                                    )`
-        const sqlDetail = `INSERT INTO b2b.cart_detail (cartHeaderId, productId, productItemId, salesOrderNo,
-                                                        lineKey, itemCode, itemType, priceLevel, commentText,
-                                                        unitOfMeasure, unitOfMeasureConvFactor, quantityOrdered,
-                                                        unitPrice, discount, lineDiscountPercent, extensionAmt,
-                                                        taxClass, taxAmt, taxRate, lineStatus, dateImported)
-                           SELECT h.id,
-                                  JSON_VALUE(p.productIds, '$[0].productId')     AS productId,
-                                  JSON_VALUE(p.productIds, '$[0].productItemId') AS productItemId,
-                                  sod.SalesOrderNo,
-                                  sod.LineKey,
-                                  sod.ItemCode,
-                                  sod.ItemType,
-                                  sod.PriceLevel,
-                                  sod.CommentText,
-                                  sod.UnitOfMeasure,
-                                  sod.UnitOfMeasureConvFactor,
-                                  sod.QuantityOrdered,
-                                  sod.UnitPrice,
-                                  sod.Discount,
-                                  sod.LineDiscountPercent,
-                                  sod.ExtensionAmt,
-                                  sod.TaxClass,
-                                  sod.TaxAmt,
-                                  sod.TaxRate,
-                                  ifnull(cd.lineStatus, 'I')                                            AS lineStatus,
-                                  h.dateUpdated
-                           FROM b2b.cart_header h
-                                    INNER JOIN c2.SO_SalesOrderDetail sod ON sod.SalesOrderNo = h.salesOrderNo
-                                    LEFT JOIN b2b.cart_detail cd
-                                              ON cd.cartHeaderId = h.id AND cd.lineKey = sod.LineKey
-                                    LEFT JOIN b2b_oscommerce.item_code_to_product_id p ON p.itemCode = sod.ItemCode
-                           WHERE (IFNULL(:cartId, 0) = 0 OR h.id = :cartId)
-                             AND (IFNULL(:customerKey, '') = '' OR h.customerKey LIKE :customerKey)
-                             AND IFNULL(cd.lineStatus, '') = '_'
-                           ON DUPLICATE KEY UPDATE productId               = JSON_VALUE(p.productIds, '$[0].productId'),
-                                                   productItemId           = JSON_VALUE(p.productIds, '$[0].productItemId'),
-                                                   itemCode                = sod.ItemCode,
-                                                   itemType                = sod.ItemType,
-                                                   priceLevel              = sod.PriceLevel,
-                                                   commentText             = sod.CommentText,
-                                                   unitOfMeasure           = sod.UnitOfMeasure,
-                                                   unitOfMeasureConvFactor = sod.unitOfMeasureConvFactor,
-                                                   quantityOrdered         = sod.QuantityOrdered,
-                                                   unitPrice               = sod.UnitPrice,
-                                                   discount                = IFNULL(sod.Discount, 0),
-                                                   lineDiscountPercent     = IFNULL(sod.LineDiscountPercent, 0),
-                                                   extensionAmt            = sod.ExtensionAmt,
-                                                   taxClass                = sod.TaxClass,
-                                                   taxAmt                  = sod.TaxAmt,
-                                                   taxRate                 = sod.TaxRate,
-                                                   lineStatus              = 'I'`;
+        const sqlDetailInsert = `
+            INSERT INTO b2b.cart_detail (cartHeaderId, productId, productItemId, salesOrderNo,
+                                         lineKey, itemCode, itemType, priceLevel, commentText,
+                                         unitOfMeasure, unitOfMeasureConvFactor, quantityOrdered,
+                                         unitPrice, discount, lineDiscountPercent, extensionAmt,
+                                         taxClass, taxAmt, taxRate, lineStatus, dateImported)
+            SELECT h.id,
+                   JSON_VALUE(p.productIds, '$[0].productId')     AS productId,
+                   JSON_VALUE(p.productIds, '$[0].productItemId') AS productItemId,
+                   sod.SalesOrderNo,
+                   sod.LineKey,
+                   sod.ItemCode,
+                   sod.ItemType,
+                   sod.PriceLevel,
+                   sod.CommentText,
+                   sod.UnitOfMeasure,
+                   sod.UnitOfMeasureConvFactor,
+                   sod.QuantityOrdered,
+                   sod.UnitPrice,
+                   sod.Discount,
+                   sod.LineDiscountPercent,
+                   sod.ExtensionAmt,
+                   sod.TaxClass,
+                   sod.TaxAmt,
+                   sod.TaxRate,
+                   IFNULL(cd.lineStatus, 'I')                     AS lineStatus,
+                   h.dateUpdated
+            FROM b2b.cart_header h
+                     INNER JOIN c2.SO_SalesOrderDetail sod ON sod.SalesOrderNo = h.salesOrderNo
+                     LEFT JOIN b2b.cart_detail cd ON cd.cartHeaderId = h.id AND cd.lineKey = sod.LineKey
+                     LEFT JOIN b2b_oscommerce.item_code_to_product_id p ON p.itemCode = sod.ItemCode
+            WHERE (IFNULL(:cartId, 0) = 0 OR h.id = :cartId)
+              AND (IFNULL(:customerKey, '') = '' OR h.customerKey LIKE :customerKey)
+              AND ISNULL(cd.id)`;
+
+        const sqlDetailUpdate = `
+            UPDATE b2b.cart_detail d
+                INNER JOIN b2b.cart_header h ON h.id = d.cartHeaderId
+                INNER JOIN c2.SO_SalesOrderDetail sod ON sod.SalesOrderNo = h.salesOrderNo AND sod.LineKey = d.lineKey
+                LEFT JOIN b2b_oscommerce.item_code_to_product_id p ON p.itemCode = sod.ItemCode
+            SET d.productId               = JSON_VALUE(p.productIds, '$[0].productId'),
+                d.productItemId           = JSON_VALUE(p.productIds, '$[0].productItemId'),
+                d.itemCode                = sod.ItemCode,
+                d.itemType                = sod.ItemType,
+                d.priceLevel              = sod.PriceLevel,
+                d.commentText             = sod.CommentText,
+                d.unitOfMeasure           = sod.UnitOfMeasure,
+                d.unitOfMeasureConvFactor = sod.unitOfMeasureConvFactor,
+                d.quantityOrdered         = sod.QuantityOrdered,
+                d.unitPrice               = sod.UnitPrice,
+                d.discount                = IFNULL(sod.Discount, 0),
+                d.lineDiscountPercent     = IFNULL(sod.LineDiscountPercent, 0),
+                d.extensionAmt            = sod.ExtensionAmt,
+                d.taxClass                = sod.TaxClass,
+                d.taxAmt                  = sod.TaxAmt,
+                d.taxRate                 = sod.TaxRate,
+                d.lineStatus              = 'I'
+            WHERE (IFNULL(:cartId, 0) = 0 OR h.id = :cartId)
+              AND (IFNULL(:customerKey, '') = '' OR h.customerKey LIKE :customerKey)
+              AND lineStatus <> 'U'
+        `
         const sqlDetailClean = `UPDATE b2b.cart_detail
                                 SET lineStatus = 'X'
                                 WHERE lineStatus = '_'
+                                  AND lineKey is not null
                                   AND (IFNULL(:cartId, '') = '' OR cartHeaderId = :cartId)
                                   AND (
                                     IFNULL(:customerKey, '') = ''
@@ -225,8 +237,12 @@ export async function syncFromC2({
         updates.header = res.affectedRows;
 
         await mysql2Pool.query<ResultSetHeader>(sqlDetailPrep, {cartId, customerKey: b2bCartCustomerKey});
-        [res] = await mysql2Pool.query<ResultSetHeader>(sqlDetail, {cartId, customerKey: b2bCartCustomerKey});
+
+        [res] = await mysql2Pool.query<ResultSetHeader>(sqlDetailUpdate, {cartId, customerKey: b2bCartCustomerKey});
         updates.detail = res.affectedRows;
+
+        [res] = await mysql2Pool.query<ResultSetHeader>(sqlDetailInsert, {cartId, customerKey: b2bCartCustomerKey});
+        updates.detail = updates.detail + res.affectedRows;
 
         [res] = await mysql2Pool.query<ResultSetHeader>(sqlDetailClean, {cartId, customerKey: b2bCartCustomerKey});
         updates.deletes = res.affectedRows;

@@ -2,7 +2,7 @@ import Debug from 'debug';
 import {loadItemPricing, loadItemUnitOfMeasure, parseCustomerKey, parseCustomerPrice} from "./cart-utils.js";
 import {createNewCart, updateCartTotals} from "./cart-header-handlers.js";
 import {loadCart} from "./load-cart.js";
-import Decimal from "decimal.js";
+import {Decimal} from "decimal.js";
 import {mysql2Pool} from "chums-local-modules";
 import type {
     AddToCartBody,
@@ -94,7 +94,7 @@ export async function addItemsToCart(cart: B2BCart, items: AddToCartBody[]): Pro
             const sql = `INSERT INTO b2b.cart_detail (cartHeaderId, productId, productItemId, salesOrderNo, lineKey,
                                                       itemCode, itemType, priceLevel, commentText,
                                                       unitOfMeasure, unitOfMeasureConvFactor, quantityOrdered,
-                                                      unitPrice, extensionAmt, lineStatus)
+                                                      unitPrice, extensionAmt, lineStatus) 
                          VALUES (:cartId, :productId, :productItemId, :salesOrderNo, NULL,
                                  :itemCode, :itemType, :priceLevel, :commentText,
                                  :unitOfMeasure, :unitOfMeasureConvFactor, :quantityOrdered,

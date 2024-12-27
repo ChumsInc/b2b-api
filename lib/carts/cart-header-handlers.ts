@@ -5,7 +5,7 @@ import {ResultSetHeader, RowDataPacket} from "mysql2";
 import {parseCustomerKey} from "./cart-utils.js";
 import type {CartActionProps, UpdateCartProps} from "./types/cart-action-props.d.ts";
 import type {B2BCart} from "./types/cart.d.ts";
-import Decimal from "decimal.js";
+import {Decimal} from "decimal.js";
 
 const debug = Debug('chums:lib:carts:cart-header-handlers');
 
@@ -157,5 +157,33 @@ export async function updateCartTotals(cartId: number | string): Promise<void> {
         }
         debug("updateCartTotals()", err);
         return Promise.reject(new Error('Error in updateCartTotals()'));
+    }
+}
+
+export async function updateCartPrinted(cartId: number | string, userId: number, printed: boolean): Promise<B2BCart | null> {
+    try {
+        debug('updateCartPrinted()', {cartId, userId, printed});
+        const sql = `
+            UPDATE b2b.cart_header
+            SET printed = JSON_ARRAY_APPEND(
+                    IFNULL(printed, '[]'),
+                    '$',
+                    JSON_OBJECT('printed', :printed,
+                                'userId', :userId,
+                                'timestamp', NOW()
+                    ))
+            WHERE id = :cartId
+              AND salesOrderNo IS NOT NULL
+              AND orderType <> 'Q'`;
+        const data = {cartId, userId, printed};
+        await mysql2Pool.query(sql, data);
+        return await loadCart({cartId, userId}, 'O');
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("updateCartPrinted()", err.message);
+            return Promise.reject(err);
+        }
+        debug("updateCartPrinted()", err);
+        return Promise.reject(new Error('Error in updateCartPrinted()'));
     }
 }

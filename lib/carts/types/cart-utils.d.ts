@@ -12,9 +12,11 @@ export interface B2BCartDetailRow extends RowDataPacket, Omit<B2BCartDetail, 'pr
     season: string;
 }
 
-export interface B2BCartHeaderRow extends RowDataPacket, Omit<B2BCartHeader, 'createdByUser', 'updatedByUser'> {
+export interface B2BCartHeaderRow extends RowDataPacket, Omit<B2BCartHeader, 'createdByUser'|'updatedByUser'|'printed'|'importedByUser'> {
     createdByUser: string | null;
     updatedByUser: string | null;
+    importedByUser: string | null;
+    printed: string;
 }
 
 

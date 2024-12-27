@@ -1,21 +1,26 @@
 import Debug from 'debug';
 import {mysql2Pool} from "chums-local-modules";
 import {LoadCartDetailProps, LoadCartProps, LoadCartsProps} from "./types/cart-action-props.js";
-import {B2BCartHeader, B2BUserInfo} from "./types/cart-header.js";
+import {B2BCartHeader, B2BUserInfo, CartPrintStatus} from "./types/cart-header.js";
 import {B2BCartDetail} from "./types/cart-detail.js";
-import {B2BCart} from "./types/cart.js";
+import {B2BCart, CartStatusProp} from "./types/cart.js";
 import {B2BCartDetailRow, B2BCartHeaderRow} from "./types/cart-utils.js";
 
 const debug = Debug('chums:lib:carts:load-cart');
 
-export async function loadCartHeader({userId}: LoadCartsProps):Promise<B2BCartHeader[]>;
-export async function loadCartHeader({userId, customerKey}: LoadCartsProps):Promise<B2BCartHeader[]>;
-export async function loadCartHeader({userId, customerKey, cartId}: LoadCartsProps):Promise<B2BCartHeader[]>;
+/*
+    status flags:
+    'O' - open order
+    'C' - cart
+ */
+export async function loadCartHeader({userId}: LoadCartsProps, status?: CartStatusProp):Promise<B2BCartHeader[]>;
+export async function loadCartHeader({userId, customerKey}: LoadCartsProps, status?: CartStatusProp):Promise<B2BCartHeader[]>;
+export async function loadCartHeader({userId, customerKey, cartId}: LoadCartsProps, status?: CartStatusProp):Promise<B2BCartHeader[]>;
 export async function loadCartHeader({
                                     userId,
                                     cartId,
                                     customerKey
-                                }: LoadCartsProps): Promise<B2BCartHeader[]> {
+                                }: LoadCartsProps, status?: CartStatusProp): Promise<B2BCartHeader[]> {
     try {
         const sql = `SELECT h.id,
                             h.salesOrderNo,
@@ -52,6 +57,12 @@ export async function loadCartHeader({
                                            'company', uu.company,
                                            'accountType', uu.accountType)) AS updatedByUser,
                             h.dateImported,
+                            IF(ISNULL(h.importedByUserId), NULL,
+                               JSON_OBJECT('id', h.importedByUserId,
+                                           'email', up.email,
+                                           'name', up.name,
+                                           'company', up.company,
+                                           'accountType', up.accountType)) AS importedByUser,
                             IFNULL(st.ShipToName, c.CustomerName)          AS ShipToName,
                             IFNULL(st.ShipToAddress1, c.AddressLine1)      AS ShipToAddress1,
                             IFNULL(st.ShipToAddress2, c.AddressLine2)      AS ShipToAddress2,
@@ -64,7 +75,9 @@ export async function loadCartHeader({
                             c.TaxSchedule,
                             soh.FreightAmt,
                             soh.DiscountAmt,
-                            soh.DepositAmt
+                            soh.DepositAmt,
+                            h.printed,
+                            soh.OrderDate
                      FROM b2b.cart_header h
                               INNER JOIN (SELECT DISTINCT ch.id
                                           FROM b2b.cart_header ch
@@ -89,22 +102,29 @@ export async function loadCartHeader({
                                             AND sp.SalespersonNo = h.salespersonNo
                               LEFT JOIN users.users uc ON uc.id = h.createdByUserId
                               LEFT JOIN users.users uu ON uu.id = h.updatedByUseId
+                              LEFT JOIN users.users up ON up.id = h.importedByUserId
                               LEFT JOIN c2.SO_SalesOrderHeader soh
                                         ON soh.Company = c.Company AND soh.SalesOrderNo = h.salesOrderNo
                      WHERE c.CustomerStatus = 'A'
-                       AND h.orderType IN ('Q', '_')
+                       AND IF(
+                             ifnull(:status, 'C') = 'C',  
+                             h.orderType in ('Q', '_'), 
+                             h.orderType in ('S', 'B') AND h.orderStatus <> 'C'
+                           )
                        AND h.orderStatus NOT IN ('X', 'Z')
                        AND (IFNULL(:cartId, '') = '' OR h.id = :cartId)
                        AND (IFNULL(:customerKey, '') = '' OR h.customerKey LIKE :customerKey)`
         if (customerKey && /^[0-9]+-[A-Z0-9]+$/.test(customerKey)) {
             customerKey = `${customerKey}-%`
         }
-        const [rows] = await mysql2Pool.query<B2BCartHeaderRow[]>(sql, {userId, cartId, customerKey});
+        const [rows] = await mysql2Pool.query<B2BCartHeaderRow[]>(sql, {userId, cartId, customerKey, status});
         return rows.map(row => {
             return {
                 ...row,
                 createdByUser: JSON.parse(row.createdByUser ?? 'null') as B2BUserInfo,
                 updatedByUser: JSON.parse(row.updatedByUser ?? 'null') as B2BUserInfo,
+                importedByUser: JSON.parse(row.importedByUser ?? 'null') as B2BUserInfo,
+                printed: JSON.parse(row.printed ?? '[]') as CartPrintStatus[],
             } as B2BCartHeader
         });
     } catch (err: unknown) {
@@ -251,7 +271,7 @@ export async function loadCartDetail({cartId, userId}: LoadCartDetailProps): Pro
                               LEFT JOIN b2b_oscommerce.product_seasons pis ON pis.product_season_id =
                                                                               JSON_VALUE(pi.additionalData, '$.season.product_season_id')
                      WHERE h.id = :cartId
-                       AND IFNULL(d.lineStatus, '') <> 'X'
+                       AND IFNULL(d.lineStatus, '') <> 'X'        
                      ORDER BY d.id;
         `
         const [rows] = await mysql2Pool.query<B2BCartDetailRow[]>(sql, {cartId, userId});
@@ -274,7 +294,7 @@ export async function loadCartDetail({cartId, userId}: LoadCartDetailProps): Pro
 
 export async function loadCustomerCarts({userId, customerKey}:LoadCartsProps):Promise<B2BCart[]> {
     try {
-        const headers = await loadCartHeader({userId, customerKey});
+        const headers = await loadCartHeader({userId, customerKey}, 'C');
         const carts: B2BCart[] = [];
         for await (const header of headers) {
             const detail = await loadCartDetail({userId, cartId: header.id});
@@ -292,9 +312,30 @@ export async function loadCustomerCarts({userId, customerKey}:LoadCartsProps):Pr
 
 }
 
-export async function loadCart({cartId, userId}: LoadCartProps): Promise<B2BCart | null> {
+export async function loadCart({cartId, userId}: LoadCartProps, cartStatus?:CartStatusProp): Promise<B2BCart | null> {
     try {
-        const [header] = await loadCartHeader({cartId, userId});
+        const [header] = await loadCartHeader({cartId, userId}, cartStatus ?? 'C');
+        if (!header) {
+            return null;
+        }
+        const detail = await loadCartDetail({cartId, userId});
+        return {
+            header,
+            detail
+        }
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("loadCart()", err.message);
+            return Promise.reject(err);
+        }
+        debug("loadCart()", err);
+        return Promise.reject(new Error('Error in loadCart()'));
+    }
+}
+
+export async function loadCartOrder({cartId, userId}: LoadCartProps): Promise<B2BCart | null> {
+    try {
+        const [header] = await loadCartHeader({cartId, userId}, 'O');
         if (!header) {
             return null;
         }
