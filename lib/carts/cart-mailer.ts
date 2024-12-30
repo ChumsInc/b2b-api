@@ -10,6 +10,7 @@ import {B2BCartHeader} from "./types/cart-header.js";
 import dayjs from "dayjs";
 import {sendEmail} from "chums-local-modules";
 import {SendMailProps} from "chums-local-modules/lib/mailer.js";
+import {updateCartTotals} from "./cart-header-handlers.js";
 
 const debug = Debug('chums:lib:carts:cart-mailer');
 
@@ -76,6 +77,7 @@ export async function getCartEmailJSON(req: Request, res: Response): Promise<voi
             res.status(401).json({error: 'Login is required'});
             return;
         }
+        await updateCartTotals(cartId);
         const json = await buildCartEmailData({customerKey, cartId, userId});
         const email = getUserEmail(res);
         if (!json) {

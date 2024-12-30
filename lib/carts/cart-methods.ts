@@ -26,6 +26,7 @@ export async function getCart(req: Request, res: Response): Promise<void> {
             return;
         }
         await syncFromC2({customerKey, cartId});
+        await updateCartTotals(cartId);
         const cart = await loadCart({cartId, userId});
         if (!cart) {
             res.status(404).json({error: 'Cart not found'});
