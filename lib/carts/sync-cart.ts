@@ -19,7 +19,7 @@ export interface SyncFromC2Response {
     closed: number;
     header: number;
     detail: number;
-    deletes: number;
+    deletedLines: number;
 }
 
 export async function syncFromC2({
@@ -114,7 +114,7 @@ export async function syncFromC2({
                              AND (IFNULL(:customerKey, '') = '' OR
                                   CONCAT_WS('-', h.ARDivisionNo, h.CustomerNo, IFNULL(h.ShipToCode, '')) LIKE
                                   :customerKey)
-                             AND (ifnull(ch.orderStatus, '') not in ('X', 'Z'))
+                             AND (IFNULL(ch.orderStatus, '') NOT IN ('X', 'Z'))
                              AND (
                                ISNULL(ch.dateUpdated)
                                    OR ch.dateUpdated < DATE_ADD(h.DateUpdated, INTERVAL h.TimeUpdated * 3600 SECOND)
@@ -213,7 +213,7 @@ export async function syncFromC2({
         const sqlDetailClean = `UPDATE b2b.cart_detail
                                 SET lineStatus = 'X'
                                 WHERE lineStatus = '_'
-                                  AND lineKey is not null
+                                  AND lineKey IS NOT NULL
                                   AND (IFNULL(:cartId, '') = '' OR cartHeaderId = :cartId)
                                   AND (
                                     IFNULL(:customerKey, '') = ''
@@ -222,13 +222,33 @@ export async function syncFromC2({
                                                             WHERE customerKey LIKE :customerKey)
                                     )
         `;
+
+        const sqlTotals = `
+            UPDATE b2b.cart_header h
+                INNER JOIN (SELECT ch.id,
+                                   SUM(IF(IFNULL(cd.taxClass, 'TX') = 'TX', cd.extensionAmt, 0))  AS taxableAmt,
+                                   SUM(IF(IFNULL(cd.taxClass, 'TX') <> 'TX', cd.extensionAmt, 0)) AS nonTaxableAmt
+                            FROM b2b.cart_header ch
+                                     INNER JOIN b2b.cart_detail cd
+                                                ON cd.cartHeaderId = ch.id
+                            GROUP BY ch.id) totals
+                ON totals.id = h.id
+            SET h.taxableAmt    = IF(IFNULL(h.taxSchedule, 'NONTAX') = 'NONTAX', 0, totals.taxableAmt),
+                h.nonTaxableAmt = IF(IFNULL(h.taxSchedule, 'NONTAX') <> 'NONTAX', totals.nonTaxableAmt,
+                                     totals.nonTaxableAmt + totals.taxableAmt),
+                h.subTotalAmt   = totals.nonTaxableAmt + totals.taxableAmt
+            WHERE h.orderStatus NOT IN ('X', 'C')
+              AND h.orderType = 'Q'
+              AND (IFNULL(:cartId, 0) = 0 OR h.id = :cartId)
+              AND (IFNULL(:customerKey, '') = '' OR h.customerKey LIKE :customerKey)
+        `;
         let b2bCartCustomerKey = customerKey ? `${customerKey}-%` : undefined;
 
         const updates: SyncFromC2Response = {
             closed: 0,
             header: 0,
             detail: 0,
-            deletes: 0,
+            deletedLines: 0,
         }
         let [res] = await mysql2Pool.query<ResultSetHeader>(sqlUpdateStatus, {cartId, customerKey: b2bCartCustomerKey});
         updates.closed = res.affectedRows;
@@ -245,7 +265,10 @@ export async function syncFromC2({
         updates.detail = updates.detail + res.affectedRows;
 
         [res] = await mysql2Pool.query<ResultSetHeader>(sqlDetailClean, {cartId, customerKey: b2bCartCustomerKey});
-        updates.deletes = res.affectedRows;
+        updates.deletedLines = res.affectedRows;
+
+        await mysql2Pool.query(sqlTotals, {cartId, customerKey: b2bCartCustomerKey});
+
         // debug('syncFromC2()', customerKey, cartId, updates);
         return updates;
     } catch (err: unknown) {
