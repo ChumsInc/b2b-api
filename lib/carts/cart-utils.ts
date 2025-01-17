@@ -133,7 +133,10 @@ export async function loadItemPricing({
     }
 }
 
-export function parseCustomerPrice(pricing:B2BCartItemPrice, uom:UnitOfMeasureLookup|null):number|string|null {
+export function parseCustomerPrice(pricing:B2BCartItemPrice|null, uom:UnitOfMeasureLookup|null):number|string|null {
+    if (!pricing) {
+        return null;
+    }
     switch (pricing.PricingMethod) {
         case 'O':
             return new Decimal(pricing.DiscountMarkup1 ?? 0).times(uom?.unitOfMeasureConvFactor ?? 1).toString();

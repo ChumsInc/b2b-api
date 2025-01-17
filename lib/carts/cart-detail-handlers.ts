@@ -71,7 +71,7 @@ export async function addItemsToCart(cart: B2BCart, items: AddToCartBody[]): Pro
 
             if (item.itemType !== '4') {
                 if (!item.quantityOrdered || Number.isNaN(item.quantityOrdered)) {
-                    return Promise.reject(new Error('Invalid quantity to add to cart'))
+                    continue;
                 }
 
                 itemPricing = await loadItemPricing({
@@ -81,13 +81,23 @@ export async function addItemsToCart(cart: B2BCart, items: AddToCartBody[]): Pro
                     priceLevel: item.priceLevel
                 });
                 if (!itemPricing) {
-                    return Promise.reject(new Error("Item is either discontinued or inactive"));
+                    item.commentText = `Item '${item.itemCode}'; Error: Item is either discontinued or inactive; Original Quantity: ${+item.quantityOrdered}`;
+                    item.itemType = '4';
+                    item.itemCode = '/C'
+                    item.quantityOrdered = 0;
                 }
 
                 uom = await loadItemUnitOfMeasure(item.itemCode, item.unitOfMeasure)
                 unitPrice = parseCustomerPrice(itemPricing, uom);
-                if (!unitPrice) {
-                    return Promise.reject(new Error('Invalid item pricing, see customer service for help.'));
+                if (item.itemType !== '4' && !unitPrice) {
+                    item.commentText = `Item '${item.itemCode}'; Error: Invalid item pricing, see customer service for help; Original Quantity: ${+item.quantityOrdered}`;
+                    item.itemType = '4';
+                    item.itemCode = '/C'
+                    item.quantityOrdered = 0;
+                    if (itemPricing) {
+                        itemPricing.ItemType = '4';
+                        itemPricing.CustomerPriceLevel = null;
+                    }
                 }
 
             }
