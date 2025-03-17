@@ -1,0 +1,27 @@
+table.table.table-sm.table-hover
+    caption
+        a(href="https://intranet.chums.com/reports/websites/b2b/image-validation") View on Chums Intranet
+    thead
+        tr
+            th Product ID
+            th Keyword
+            th Item Code
+            th Description
+            th Sales U/M
+            th Filenames
+    tbody
+        for row in items
+            - var url = "https://intranet.chums.com/apps/b2b-products/#/products/" + encodeURIComponent(row.keyword)
+            tr
+                td !{row.productId}
+                td
+                    a(href=url, target="b2b-editor", rel="noreferrer") #{row.keyword}
+                td #{row.itemCode}
+                td #{row.itemCodeDesc}
+                td #{row.salesUnitOfMeasure}
+                td
+                    for file in row.filenames.filter(fn => fn.filename !== null)
+                        div #{file.filename}
+                            if (file.preferred)
+                                span.badge.text-bg-primary.ms-1
+                                    span.bi-check(aria-label="preferred image")
