@@ -59,19 +59,20 @@ export async function loadMix(id: number | string): Promise<ProductMixVariant | 
                                     d.ItemQuantity AS itemQuantity,
                                     d.colorsId,
                                     c.color_code,
-                                    c.color_name,
+                                    IFNULL(NULLIF(c.color_name, ''), sc.description) as color_name,
                                     (SELECT additionalData
-                                     FROM b2b_oscommerce.products p 
-                                         INNER JOIN b2b_oscommerce.products_items i
-                                            on i.productsID = p.products_id
-                                     WHERE p.products_status = 1                                    
-                                         AND i.itemCode = d.ItemCode
+                                     FROM b2b_oscommerce.products p
+                                              INNER JOIN b2b_oscommerce.products_items i
+                                                         ON i.productsID = p.products_id
+                                     WHERE p.products_status = 1
+                                       AND i.itemCode = d.ItemCode
                                      LIMIT 1)      AS additionalData
                              FROM b2b_oscommerce.products_mixes m
                                       INNER JOIN b2b_oscommerce.products_mixes_detail d
                                                  ON d.mixID = m.mixID
                                       LEFT JOIN b2b_oscommerce.colors c
                                                 ON c.colors_id = d.colorsId
+                                      LEFT JOIN c2.sku_colors sc ON sc.code = c.color_code
                              WHERE m.productsID = :id
                              ORDER BY ItemCode`;
         const data = {id};
