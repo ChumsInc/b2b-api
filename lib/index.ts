@@ -2,7 +2,7 @@ import {Router, Request, Response, NextFunction} from 'express';
 import {ValidatedUserProfile} from 'chums-types'
 import Debug from 'debug';
 import {default as productRouter} from './product/index.js';
-import {getKeywords} from './keywords/index.js';
+import {getKeyword, getKeywords} from './keywords/index.js';
 import {delPage, getPages, postPage, getPage} from './pages/index.js';
 import {default as menuRouter} from './menus/index.js';
 import {delMessage, getCurrentMessages, getMessage, getMessages, postMessage} from './site-messages/index.js';
@@ -17,6 +17,7 @@ import {delBanner, getActiveBanners, getBanners, postBanner} from "./features/ba
 import {validateUser} from "chums-local-modules";
 import {aboutAPI} from "./about/index.js";
 import cartsRouter from "./carts/index.js";
+import {getProductImageValidation, renderProductImageValidationTable} from "./validation/product-images.js";
 
 const debug = Debug('chums:lib:index');
 const router = Router();
@@ -60,6 +61,8 @@ router.get('/features/banners/all', validateUser, validateAdmin, getBanners);
 router.post('/features/banners', validateUser, validateAdmin, postBanner);
 router.put('/features/banners/:id(\\d+)', validateUser, validateAdmin, postBanner);
 router.delete('/features/banners/:id(\\d+)', validateUser, validateAdmin, delBanner);
+router.get('/keywords.json', getKeywords);
+router.get('/keywords/:keyword.json', getKeyword);
 router.get('/keywords/:keyword?', getKeywords);
 router.use('/menus', menuRouter);
 router.get('/messages.json', getCurrentMessages);
@@ -82,12 +85,15 @@ router.get('/search/:term/:limit(\\d+)', [deprecationNotice, getSearchPages, get
 router.get('/pages.json', getPages);
 router.get('/pages/:id(\\d+).json', getPage);
 router.get('/pages/:keyword.json', getPage);
-router.get('/pages/:id(\\d+)?', deprecationNotice, getPages);
-router.get('/pages/:keyword?', deprecationNotice, getPages);
+router.get('/pages/:id(\\d+)?', getPages);
+router.get('/pages/:keyword?', getPages);
 router.post('/pages/', validateUser, validateAdmin, postPage);
 router.post('/pages.json', validateUser, validateAdmin, postPage);
 router.put('/pages/:id(\\d+).json', validateUser, validateAdmin, postPage);
 router.delete('/pages/:id(\\d+)', validateUser, validateAdmin, delPage);
+
+router.get('/validate/product/images.json', validateUser, validateAdmin, getProductImageValidation)
+router.get('/validate/product/images.html', validateUser, validateAdmin, renderProductImageValidationTable)
 
 
 export default router;
