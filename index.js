@@ -6,14 +6,13 @@ import helmet from 'helmet';
 import http from 'node:http';
 import Debug from "debug";
 import {default as libRouter} from './lib/index.js'
+import {helmetOptions} from "./helmetOptions.js";
 
 process.env.DEBUG = 'chums:*,pm2:*';
 const debug = Debug('chums:index');
 
 const app = express();
-app.use(helmet({
-    xXssProtection: false,
-}));
+app.use(helmet(helmetOptions));
 app.set('trust proxy', 'loopback');
 app.set('json spaces', 2);
 app.use(cookieParser());

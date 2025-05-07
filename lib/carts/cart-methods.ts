@@ -3,12 +3,7 @@ import {NextFunction, Request, Response} from "express";
 import {addToCart, removeCartItem, updateCartItem} from "./cart-detail-handlers.js";
 import {cancelCartHeader, updateCartHeader, updateCartPrinted, updateCartTotals} from "./cart-header-handlers.js";
 import {loadCart, loadCartHeader, loadCartOrder, loadCustomerCarts} from "./load-cart.js";
-import type {
-    AddToCartBody,
-    AddToNewCartProps,
-    UpdateCartHeaderBody,
-    UpdateCartItemBody
-} from "./types/cart-action-props.d.ts";
+import type {AddToCartBody, UpdateCartHeaderBody, UpdateCartItemBody} from "./types/cart-action-props.d.ts";
 import {getUserId, isUpdateCartItemBody, isUpdateCartItemsBody} from "./utils.js";
 import {syncFromC2} from "./sync-cart.js";
 import {B2BCart} from "./types/cart.js";
@@ -79,7 +74,7 @@ export async function postCartPrinted(req: Request, res: Response): Promise<void
         }
         const cartOrder = await updateCartPrinted(cartId, userId, true);
         res.json({cartOrder});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postCartPrinted()", err.message);
             res.json({error: err.message, name: err.name});
@@ -99,7 +94,7 @@ export async function deleteCartPrinted(req: Request, res: Response): Promise<vo
         }
         const cartOrder = await updateCartPrinted(cartId, userId, false);
         res.json({cartOrder});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postCartPrinted()", err.message);
             res.json({error: err.message, name: err.name});
@@ -177,11 +172,11 @@ export async function getCustomerCarts(req: Request, res: Response) {
 }
 
 
-export const putUpdateCart = async (req: Request, res: Response, next: NextFunction):Promise<void> => {
+export const putUpdateCart = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const userId = res.locals.profile!.user.id;
         const {customerKey, cartId} = req.params;
-        const body:UpdateCartHeaderBody = {
+        const body: UpdateCartHeaderBody = {
             shipToCode: req.body.shipToCode ?? undefined,
             customerPONo: req.body.customerPONo ?? undefined,
             promoCode: req.body.promoCode ?? undefined,
@@ -190,7 +185,7 @@ export const putUpdateCart = async (req: Request, res: Response, next: NextFunct
         await updateCartHeader({userId, customerKey, cartId, ...body});
         const cart = await loadCart({userId, cartId});
         res.json({cart});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("putUpdateCart()", err.message);
             res.json({error: err.message, name: err.name});
@@ -200,14 +195,14 @@ export const putUpdateCart = async (req: Request, res: Response, next: NextFunct
     }
 }
 
-export const deleteCart = async (req: Request, res: Response):Promise<void> => {
+export const deleteCart = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = res.locals.profile!.user.id;
         const {customerKey, cartId} = req.params;
         await cancelCartHeader({userId, customerKey, cartId});
         const carts = await loadCartHeader({userId, customerKey}, 'C');
         res.json({carts});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("deleteCart()", err.message);
             res.json({error: err.message, name: err.name});
@@ -216,7 +211,6 @@ export const deleteCart = async (req: Request, res: Response):Promise<void> => {
         res.json({error: 'unknown error in deleteCart'});
     }
 }
-
 
 
 export const postAddToCart = async (req: Request, res: Response): Promise<void> => {
@@ -232,7 +226,7 @@ export const postAddToCart = async (req: Request, res: Response): Promise<void> 
             quantityOrdered: req.body.quantityOrdered,
             commentText: req.body.commentText ?? '',
         }
-        let cart:B2BCart | null;
+        let cart: B2BCart | null;
         if (!cartId) {
             cart = await addToCart({
                 userId,
@@ -269,7 +263,7 @@ export const putUpdateCartItem = async (req: Request, res: Response): Promise<vo
         }
         const cart = await loadCart({cartId, userId});
         res.json({cart});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("putUpdateCart()", err.message);
             res.json({error: err.message, name: err.name});
@@ -305,7 +299,7 @@ export const putUpdateCartItems = async (req: Request, res: Response): Promise<v
         }
         const cart = await loadCart({cartId, userId});
         res.json({cart});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("putUpdateCart()", err.message);
             res.json({error: err.message, name: err.name});
@@ -322,7 +316,7 @@ export const deleteCartItem = async (req: Request, res: Response): Promise<void>
         await removeCartItem({userId, customerKey, cartId, cartItemId});
         const cart = await loadCart({cartId, userId});
         res.json({cart});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("deleteCartItem()", err.message);
             res.json({error: err.message, name: err.name});
@@ -338,9 +332,17 @@ export const postDuplicateSalesOrder = async (req: Request, res: Response): Prom
         const {customerKey, salesOrderNo} = req.params;
         const cartName = req.body.cartName ?? null;
         const shipToCode = req.body.shipToCode ?? null;
-        const cart = await duplicateSalesOrder({userId, customerKey, salesOrderNo, cartName, shipToCode});
+        const allowZeroPrice = [1, 2].includes(res.locals.profile?.user.accountType ?? 0);
+        const cart = await duplicateSalesOrder({
+            userId,
+            customerKey,
+            salesOrderNo,
+            cartName,
+            shipToCode,
+            allowZeroPrice
+        });
         res.json({cart});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("duplicateSalesOrder()", err.message);
             res.json({error: err.message, name: err.name});

@@ -76,7 +76,7 @@ body(style="margin: 0; max-width: 950px; margin: auto; font-family:&quot;Helveti
                         else
                             td(style="padding:5px;")= row.itemCode
                             td(style="padding:5px;")
-                                if row.itemType === '1' && row.image !== undefined
+                                if row.itemType === '1' && !!row.image
                                     img(src=`https://b2b.chums.com/images/products/250/${row.image}`, style="max-width:80px; height: auto;")
                             td(style="padding:5px;")= row.itemCodeDesc
                             td(style="padding:5px;")= row.unitOfMeasure

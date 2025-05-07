@@ -1,8 +1,8 @@
 import Debug from 'debug';
 import {mysql2Pool} from "chums-local-modules";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
-import {AddToCartBody, type AddToCartProps} from "./types/cart-action-props.js";
-import {addItemsToCart, addToCart} from "./cart-detail-handlers.js";
+import {AddToCartBody} from "./types/cart-action-props.js";
+import {addItemsToCart} from "./cart-detail-handlers.js";
 import {loadCart} from "./load-cart.js";
 import {B2BCart} from "./types/cart.js";
 
@@ -14,6 +14,7 @@ export interface DuplicateSalesOrderProps {
     userId: string | number;
     cartName?: string | null;
     shipToCode?: string | null;
+    allowZeroPrice?: boolean;
 }
 
 export async function duplicateSalesOrder({
@@ -22,7 +23,8 @@ export async function duplicateSalesOrder({
                                               userId,
                                               cartName,
                                               shipToCode,
-                                          }: DuplicateSalesOrderProps): Promise<B2BCart|null> {
+                                              allowZeroPrice,
+                                          }: DuplicateSalesOrderProps): Promise<B2BCart | null> {
     try {
         const sqlHeader = `INSERT INTO b2b.cart_header (salesOrderNo, orderType, orderStatus, arDivisionNo, customerNo,
                                                         shipToCode, salespersonDivisionNo, salespersonNo, customerPONo,
@@ -83,22 +85,24 @@ export async function duplicateSalesOrder({
                                   sod.PriceLevel                                 AS priceLevel,
                                   sod.CommentText                                AS commentText,
                                   sod.UnitOfMeasure                              AS unitOfMeasure,
-                                  sod.QuantityOrderedRevised                     AS quantityOrdered                        
+                                  sod.QuantityOrderedRevised                     AS quantityOrdered,
+                                  i.StandardUnitPrice
                            FROM c2.SO_SalesOrderHistoryDetail sod
                                     INNER JOIN c2.CI_Item i ON i.Company = sod.Company AND i.ItemCode = sod.ItemCode
                                     LEFT JOIN b2b_oscommerce.item_code_to_product_id p ON p.itemCode = sod.ItemCode
                            WHERE sod.Company = 'chums'
                              AND sod.SalesOrderNo = :salesOrderNo
-                             AND ifnull(sod.ExplodedKitItem, '') <> 'Y'
-                             AND (IF(sod.ItemType = '1', sod.QuantityOrderedRevised > 0, 1)) 
+                             AND IFNULL(sod.ExplodedKitItem, '') <> 'Y'
+                             AND (IF(sod.ItemType = '1', sod.QuantityOrderedRevised > 0, 1))
                              AND i.InactiveItem <> 'Y'
-                             AND i.ProductType <> 'D'`;
+                             AND IFNULL(i.ProductType, '') <> 'D'
+                           ORDER BY sod.SequenceNo`;
         const [rows] = await mysql2Pool.query<(AddToCartBody & RowDataPacket)[]>(sqlDetail, {salesOrderNo});
         const cart = await loadCart({cartId, userId});
         if (!cart) {
             return Promise.reject(new Error(`Unable to load duplicated sales order: ${salesOrderNo}`));
         }
-        await addItemsToCart(cart, rows);
+        await addItemsToCart(cart, rows, allowZeroPrice);
         return await loadCart({cartId, userId});
     } catch (err: unknown) {
         if (err instanceof Error) {

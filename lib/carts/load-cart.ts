@@ -150,8 +150,19 @@ export async function loadCartDetail({cartId, userId}: LoadCartDetailProps): Pro
                                     'categoryKeyword', cat.page_keyword,
                                     'productKeyword', IFNULL(pp.products_keyword, p.products_keyword),
                                     'image', IFNULL(
-                                            JSON_VALUE(pi.additionalData, '$.image_filename'),
-                                            p.products_image
+                                            IFNULL(
+                                                    JSON_VALUE(pi.additionalData, '$.image_filename'),
+                                                    p.products_image
+                                            ), (SELECT filename
+                                                FROM c2.PM_Images
+                                                WHERE item_code = d.itemCode
+                                                  AND active = 1
+                                                UNION
+                                                SELECT filename
+                                                FROM c2.PM_ImageProducts
+                                                WHERE item_code = d.itemCode
+                                                  AND active = 1
+                                                LIMIT 1)
                                              ),
                                     'colorCode', IFNULL(pi.colorCode, p.products_default_color),
                                     'swatchCode', NULLIF(
@@ -271,7 +282,7 @@ export async function loadCartDetail({cartId, userId}: LoadCartDetailProps): Pro
                               LEFT JOIN b2b_oscommerce.product_seasons pis ON pis.product_season_id =
                                                                               JSON_VALUE(pi.additionalData, '$.season.product_season_id')
                      WHERE h.id = :cartId
-                       AND IFNULL(d.lineStatus, '') <> 'X'        
+                       AND IFNULL(d.lineStatus, '') <> 'X'
                      ORDER BY d.id;
         `
         const [rows] = await mysql2Pool.query<B2BCartDetailRow[]>(sql, {cartId, userId});

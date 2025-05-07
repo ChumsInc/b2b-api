@@ -61,7 +61,7 @@ export async function addToCart({
     }
 }
 
-export async function addItemsToCart(cart: B2BCart, items: AddToCartBody[]): Promise<void> {
+export async function addItemsToCart(cart: B2BCart, items: AddToCartBody[], allowZeroPrice?: boolean): Promise<void> {
     try {
         const {arDivisionNo, customerNo} = cart.header
         for await (const item of items) {
@@ -89,7 +89,11 @@ export async function addItemsToCart(cart: B2BCart, items: AddToCartBody[]): Pro
 
                 uom = await loadItemUnitOfMeasure(item.itemCode, item.unitOfMeasure)
                 unitPrice = parseCustomerPrice(itemPricing, uom);
-                if (item.itemType !== '4' && !unitPrice) {
+                if (item.itemType !== '4'
+                    && !allowZeroPrice
+                    && new Decimal(itemPricing?.StandardUnitPrice ?? 0).gt(0)
+                    && new Decimal(unitPrice ?? 0).eq(0)
+                ) {
                     item.commentText = `Item '${item.itemCode}'; Error: Invalid item pricing, see customer service for help; Original Quantity: ${+item.quantityOrdered}`;
                     item.itemType = '4';
                     item.itemCode = '/C'
@@ -104,7 +108,7 @@ export async function addItemsToCart(cart: B2BCart, items: AddToCartBody[]): Pro
             const sql = `INSERT INTO b2b.cart_detail (cartHeaderId, productId, productItemId, salesOrderNo, lineKey,
                                                       itemCode, itemType, priceLevel, commentText,
                                                       unitOfMeasure, unitOfMeasureConvFactor, quantityOrdered,
-                                                      unitPrice, extensionAmt, lineStatus) 
+                                                      unitPrice, extensionAmt, lineStatus)
                          VALUES (:cartId, :productId, :productItemId, :salesOrderNo, NULL,
                                  :itemCode, :itemType, :priceLevel, :commentText,
                                  :unitOfMeasure, :unitOfMeasureConvFactor, :quantityOrdered,
@@ -121,7 +125,7 @@ export async function addItemsToCart(cart: B2BCart, items: AddToCartBody[]): Pro
                 unitOfMeasure: item.unitOfMeasure ?? uom?.unitOfMeasure ?? 'EA',
                 unitOfMeasureConvFactor: uom?.unitOfMeasureConvFactor ?? 1,
                 quantityOrdered: item.quantityOrdered ?? 0,
-                unitPrice: unitPrice,
+                unitPrice: unitPrice ?? 0,
                 extensionAmt: new Decimal(item.quantityOrdered ?? 0).times(unitPrice ?? 0).toString()
             };
             await mysql2Pool.query(sql, args);
@@ -207,9 +211,9 @@ export async function removeCartItem({userId, cartId, cartItemId}: CartItemActio
     try {
         const item = await loadCartItem({userId, cartId, cartItemId});
         const sql = `UPDATE b2b.cart_detail
-                     SET lineStatus = :lineStatus,
+                     SET lineStatus      = :lineStatus,
                          quantityOrdered = 0,
-                         extensionAmt = 0
+                         extensionAmt    = 0
                      WHERE cartHeaderId = :cartId
                        AND id = :cartItemId`
         const args = {cartId, cartItemId, lineStatus: item.soDetail?.lineKey ? 'U' : 'X'};
