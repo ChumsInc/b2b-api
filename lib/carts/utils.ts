@@ -60,11 +60,11 @@ export function isUpdateCartItemsBody(body:Partial<UpdateCartItemBody>|UpdateCar
     return Array.isArray((body as UpdateCartItemsBody)?.items);
 }
 export function isUpdateCartItemBody(body:UpdateCartItemBody|UpdateCartItemsBody|unknown): body is UpdateCartItemBody {
-    if (isUpdateCartItemsBody(body)) {
+    if (!body || isUpdateCartItemsBody(body)) {
         return false;
     }
 
-    return typeof body === 'object' && (body?.hasOwnProperty('quantityOrdered') ?? false)
+    return typeof body === 'object' && (body as UpdateCartItemBody).quantityOrdered !== undefined
 }
 
 

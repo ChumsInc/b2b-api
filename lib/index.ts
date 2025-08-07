@@ -38,7 +38,7 @@ const isLocalHost = (ip:string|undefined) => {
 }
 
 const debugLogger = (req:Request, res:Response, next:NextFunction) => {
-    if (!isLocalHost(req.ip)) {
+    if (!isLocalHost(req.ip) || true) {
         debug(req.ip, req.method, req.originalUrl, req.get('referrer') || req.get('host'));
     }
     next();

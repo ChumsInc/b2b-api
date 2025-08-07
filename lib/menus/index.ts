@@ -1,21 +1,35 @@
-import { validateUser } from 'chums-local-modules';
-import { Router } from "express";
-import { delMenu, delMenuItem, getActiveMenus, getMenu, getMenuItems, getMenus, getParents, postItemSort, postMenu, postMenuItem } from './menu.js';
-import { deprecationNotice, validateAdmin } from "../common.js";
+import {validateUser} from 'chums-local-modules';
+import {Router} from "express";
+import {
+    delMenu,
+    delMenuItem, getActiveMenus, getMenu,
+    getMenuItems,
+    getMenus,
+    getParents,
+    postItemSort,
+    postMenu,
+    postMenuItem
+} from './menu.js';
+import {deprecationNotice, validateAdmin} from "../common.js";
+
+
 const router = Router();
 router.use(validateUser);
 router.get('/list.json', validateAdmin, getMenus);
-router.get('/active.json', getActiveMenus);
+router.get('/active.json', getActiveMenus)
 router.get('/:id.json', getMenu);
 router.get('/active/:id.json', getActiveMenus);
 router.get('/parents/:id.json', getParents);
 router.get('/:parentId/items.json', getMenuItems);
 router.get('/:parentId/items/:id.json', getMenuItems);
-router.post('/item.json', validateUser, validateAdmin, postMenuItem);
-router.post('/:parentId/sort.json', validateUser, validateAdmin, postItemSort);
+
+router.post('/item.json', validateUser, validateAdmin, postMenuItem)
+router.post('/:parentId/sort.json', validateUser, validateAdmin, postItemSort)
 router.post('/menu.json', validateUser, validateAdmin, postMenu);
+
 router.delete('/:id.json', validateUser, validateAdmin, delMenu);
 router.delete('/:parentId/:id.json', validateUser, validateAdmin, delMenuItem);
+
 router.use(deprecationNotice);
 router.get('/:id(\\d+)?', getMenus);
 router.get('/:parentId(\\d+)/:id(\\d+)?', getMenuItems);
@@ -25,4 +39,6 @@ router.post('/:parentId(\\d+)/sort', validateUser, validateAdmin, postItemSort);
 router.post('/', validateUser, validateAdmin, postMenu);
 router.delete('/:id(\\d+)', validateUser, validateAdmin, delMenu);
 router.delete('/:parentId(\\d+)/:id(\\d+)', validateUser, validateAdmin, delMenuItem);
+
 export default router;
+

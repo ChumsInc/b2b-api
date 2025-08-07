@@ -7,3 +7,10 @@ export interface ContentPageRow extends RowDataPacket, Omit<ContentPage, 'status
 }
 
 export type ContentPageBody = Partial<ContentPage>;
+
+export interface ContentPageMoreData {
+    lifestyle?: string;
+    css?: string;
+    subtitle?: string;
+    requiresLogin?: boolean;
+}
