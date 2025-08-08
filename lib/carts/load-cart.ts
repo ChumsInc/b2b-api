@@ -172,6 +172,7 @@ export async function loadCartDetail({cartId, userId}: LoadCartDetailProps): Pro
                                             ''),
                                     'available', a.QuantityAvailable,
                                     'upc', IFNULL(bd.UPC, i.UDF_UPC_BY_COLOR),
+                                    'requiresCustomization', NOT ISNULL(bd.UPC),
                                     'inactiveItem', IF(i.InactiveItem, TRUE, FALSE)
                             )                                    AS cartProduct,
                             JSON_OBJECT(
@@ -283,7 +284,7 @@ export async function loadCartDetail({cartId, userId}: LoadCartDetailProps): Pro
                                                                               JSON_VALUE(pi.additionalData, '$.season.product_season_id')
                      WHERE h.id = :cartId
                        AND IFNULL(d.lineStatus, '') <> 'X'
-                     ORDER BY d.id;
+                     ORDER BY d.id
         `
         const [rows] = await mysql2Pool.query<B2BCartDetailRow[]>(sql, {cartId, userId});
         return rows.map(row => ({

@@ -14,6 +14,7 @@ import {
 import {postSyncCarts, postSyncSage} from "./sync-cart.js";
 import {getCartEmailHTML, getCartEmailJSON, getCartEmailText, sendCartEmail} from "./cart-mailer.js";
 import {getCartUser} from "./cart-user.js";
+import {getNextShipDate} from "./ship-date.js";
 
 const cartsRouter = Router();
 cartsRouter.use(validateUser);
@@ -22,6 +23,7 @@ cartsRouter.post('/sync.json', validateRole(['cs', 'sales', 'web_admin']), postS
 cartsRouter.get('/sync.json', validateRole(['cs', 'sales', 'web_admin']), postSyncCarts);
 cartsRouter.post('/sync/:salesOrderNo.json', validateRole(['cs', 'sales', 'web_admin']), postSyncSage);
 
+cartsRouter.get('/next-ship-date.json', getNextShipDate);
 cartsRouter.get('/list.json', validateRole(['cs', 'sales', 'web_admin']), getCartsList);
 cartsRouter.get('/orders.json', validateRole(['cs', 'sales', 'web_admin']), getOrdersList);
 cartsRouter.get('/orders/:cartId.json', validateRole(['cs', 'sales', 'web_admin']), getCartOrder);
