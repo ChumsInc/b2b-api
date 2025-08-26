@@ -18,6 +18,11 @@ import {B2BCartItemPrice, UnitOfMeasureLookup} from "./types/cart-utils.js";
 
 const debug = Debug('chums:lib:carts:cart-detail-handlers');
 
+
+export interface AddItemsToCartOptions {
+    allowZeroPrice?: boolean;
+    userId?: number;
+}
 /**
  * Add an item to the cart, price is calculated based on Customer, Item, or Price Code pricing.
  *
@@ -61,7 +66,7 @@ export async function addToCart({
     }
 }
 
-export async function addItemsToCart(cart: B2BCart, items: AddToCartBody[], allowZeroPrice?: boolean): Promise<void> {
+export async function addItemsToCart(cart: B2BCart, items: AddToCartBody[], options?: AddItemsToCartOptions): Promise<void> {
     try {
         const {arDivisionNo, customerNo} = cart.header
         for await (const item of items) {
@@ -90,7 +95,7 @@ export async function addItemsToCart(cart: B2BCart, items: AddToCartBody[], allo
                 uom = await loadItemUnitOfMeasure(item.itemCode, item.unitOfMeasure)
                 unitPrice = parseCustomerPrice(itemPricing, uom);
                 if (item.itemType !== '4'
-                    && !allowZeroPrice
+                    && !options?.allowZeroPrice
                     && new Decimal(itemPricing?.StandardUnitPrice ?? 0).gt(0)
                     && new Decimal(unitPrice ?? 0).eq(0)
                 ) {
@@ -108,11 +113,11 @@ export async function addItemsToCart(cart: B2BCart, items: AddToCartBody[], allo
             const sql = `INSERT INTO b2b.cart_detail (cartHeaderId, productId, productItemId, salesOrderNo, lineKey,
                                                       itemCode, itemType, priceLevel, commentText,
                                                       unitOfMeasure, unitOfMeasureConvFactor, quantityOrdered,
-                                                      unitPrice, extensionAmt, lineStatus)
+                                                      unitPrice, extensionAmt, lineStatus, history)
                          VALUES (:cartId, :productId, :productItemId, :salesOrderNo, NULL,
                                  :itemCode, :itemType, :priceLevel, :commentText,
                                  :unitOfMeasure, :unitOfMeasureConvFactor, :quantityOrdered,
-                                 :unitPrice, :extensionAmt, 'N')`
+                                 :unitPrice, :extensionAmt, 'N', :history)`
             const args = {
                 cartId: cart.header.id,
                 productId: item.productId,
@@ -126,7 +131,13 @@ export async function addItemsToCart(cart: B2BCart, items: AddToCartBody[], allo
                 unitOfMeasureConvFactor: uom?.unitOfMeasureConvFactor ?? 1,
                 quantityOrdered: item.quantityOrdered ?? 0,
                 unitPrice: unitPrice ?? 0,
-                extensionAmt: new Decimal(item.quantityOrdered ?? 0).times(unitPrice ?? 0).toString()
+                extensionAmt: new Decimal(item.quantityOrdered ?? 0).times(unitPrice ?? 0).toString(),
+                history: JSON.stringify([
+                    {action: 'addItemsToCart',
+                        'userId': options?.userId ?? 0,
+                        args: item,
+                        timestamp: new Date().toISOString()}
+                ])
             };
             await mysql2Pool.query(sql, args);
         }
@@ -183,7 +194,8 @@ export async function updateCartItem({
                          unitPrice       = :unitPrice,
                          extensionAmt    = :extensionAmt,
                          commentText     = :commentText,
-                         lineStatus      = 'U'
+                         lineStatus      = 'U',
+                         history         = JSON_ARRAY_APPEND(IFNULL(history, '[]'), '$', JSON_EXTRACT(:history, '$'))
                      WHERE cartHeaderId = :cartId
                        AND id = :cartItemId`;
         const args = {
@@ -193,6 +205,12 @@ export async function updateCartItem({
             unitPrice: unitPrice ?? 0,
             extensionAmt: new Decimal(quantityOrdered).times(unitPrice ?? 0).toString(),
             commentText: commentText ?? item.commentText,
+            history: JSON.stringify({
+                action: 'updateCartItem',
+                userId,
+                args: {cartId, cartItemId, quantityOrdered, unitPrice, commentText},
+                timestamp: new Date().toISOString()
+            })
         }
         await mysql2Pool.query(sql, args);
         await updateCartTotals(cartId);
@@ -211,12 +229,18 @@ export async function removeCartItem({userId, cartId, cartItemId}: CartItemActio
     try {
         const item = await loadCartItem({userId, cartId, cartItemId});
         const sql = `UPDATE b2b.cart_detail
-                     SET lineStatus      = :lineStatus,
+                     SET lineStatus = :lineStatus,
                          quantityOrdered = 0,
-                         extensionAmt    = 0
+                         extensionAmt = 0,
+                         history = JSON_ARRAY_APPEND(IFNULL(history, '[]'), '$', JSON_EXTRACT(:history, '$'))
                      WHERE cartHeaderId = :cartId
                        AND id = :cartItemId`
-        const args = {cartId, cartItemId, lineStatus: item.soDetail?.lineKey ? 'U' : 'X'};
+        const args = {
+            cartId,
+            cartItemId,
+            lineStatus: item.soDetail?.lineKey ? 'U' : 'X',
+            history: JSON.stringify({action: 'removeCartItem', userId,  args: {cartId, cartItemId}})
+        };
         await mysql2Pool.query(sql, args);
         await updateCartTotals(cartId);
     } catch (err: unknown) {

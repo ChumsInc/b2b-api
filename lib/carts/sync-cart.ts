@@ -154,7 +154,7 @@ export async function syncFromC2({
                                          lineKey, itemCode, itemType, priceLevel, commentText,
                                          unitOfMeasure, unitOfMeasureConvFactor, quantityOrdered,
                                          unitPrice, discount, lineDiscountPercent, extensionAmt,
-                                         taxClass, taxAmt, taxRate, lineStatus, dateImported)
+                                         taxClass, taxAmt, taxRate, lineStatus, dateImported, history)
             SELECT h.id,
                    JSON_VALUE(p.productIds, '$[0].productId')     AS productId,
                    JSON_VALUE(p.productIds, '$[0].productItemId') AS productItemId,
@@ -175,7 +175,8 @@ export async function syncFromC2({
                    sod.TaxAmt,
                    sod.TaxRate,
                    IFNULL(cd.lineStatus, 'I')                     AS lineStatus,
-                   h.dateUpdated
+                   h.dateUpdated,
+                   JSON_ARRAY(JSON_OBJECT('action', 'syncFromC2(insert)'))
             FROM b2b.cart_header h
                      INNER JOIN c2.SO_SalesOrderDetail sod ON sod.SalesOrderNo = h.salesOrderNo
                      LEFT JOIN b2b.cart_detail cd ON cd.cartHeaderId = h.id AND cd.lineKey = sod.LineKey
@@ -205,13 +206,33 @@ export async function syncFromC2({
                 d.taxClass                = sod.TaxClass,
                 d.taxAmt                  = sod.TaxAmt,
                 d.taxRate                 = sod.TaxRate,
-                d.lineStatus              = 'I'
+                d.lineStatus              = 'I',
+                d.history                 = JSON_ARRAY_APPEND(
+                        IFNULL(d.history, '[]'),
+                        '$',
+                        JSON_OBJECT('action', 'syncFromC2(update)',
+                                    'item', JSON_OBJECT(
+                                            'itemCode', sod.ItemCode,
+                                            'priceLevel', sod.PriceLevel,
+                                            'commentText', sod.CommentText,
+                                            'unitOfMeasure', sod.UnitOfMeasure,
+                                            'quantityOrdered', sod.QuantityOrdered,
+                                            'unitPrice', sod.UnitPrice,
+                                            'discount', sod.Discount,
+                                            'lineDiscountPercent', sod.LineDiscountPercent,
+                                            'extensionAmt', sod.ExtensionAmt,
+                                            'taxClass', sod.TaxClass,
+                                            'taxRate', sod.TaxRate
+                                            ),
+                                    'timestamp', NOW()))
             WHERE (IFNULL(:cartId, 0) = 0 OR h.id = :cartId)
               AND (IFNULL(:customerKey, '') = '' OR h.customerKey LIKE :customerKey)
               AND lineStatus <> 'U'
         `
         const sqlDetailClean = `UPDATE b2b.cart_detail
-                                SET lineStatus = 'X'
+                                SET lineStatus = 'X',
+                                    history   = JSON_ARRAY_APPEND(ifnull(history, '[]'), '$', 
+                                                                  JSON_OBJECT('action', 'syncFromC2(delete)', 'timestamp', NOW()))
                                 WHERE lineStatus = '_'
                                   AND lineKey IS NOT NULL
                                   AND (IFNULL(:cartId, '') = '' OR cartHeaderId = :cartId)
@@ -242,7 +263,7 @@ export async function syncFromC2({
               AND (IFNULL(:cartId, 0) = 0 OR h.id = :cartId)
               AND (IFNULL(:customerKey, '') = '' OR h.customerKey LIKE :customerKey)
         `;
-        let b2bCartCustomerKey = customerKey ? `${customerKey}-%` : undefined;
+        const b2bCartCustomerKey = customerKey ? `${customerKey}-%` : undefined;
 
         const updates: SyncFromC2Response = {
             closed: 0,
@@ -361,11 +382,12 @@ export async function syncFromSage(salesOrderNo: string): Promise<SyncFromSageRe
                                  AND lineStatus = 'I'`;
         const sqlDetail = `INSERT INTO b2b.cart_detail (cartHeaderId, salesOrderNo, lineKey, itemCode, itemType,
                                                         priceLevel, commentText, unitOfMeasure, quantityOrdered,
-                                                        unitPrice, extensionAmt, lineStatus)
+                                                        unitPrice, extensionAmt, lineStatus, history)
                            VALUES ((SELECT id FROM b2b.cart_header WHERE salesOrderNo = :salesOrderNo),
                                    :salesOrderNo, :lineKey, :itemCode, :itemType,
                                    :priceLevel, :commentText, :unitOfMeasure, :quantityOrdered,
-                                   :unitPrice, :extensionAmt, :lineStatus)
+                                   :unitPrice, :extensionAmt, :lineStatus,
+                                   JSON_ARRAY(JSON_OBJECT('action', 'syncFromSage(insert)', 'timestamp', NOW())))
                            ON DUPLICATE KEY UPDATE itemCode        = :itemCode,
                                                    itemType        = :itemType,
                                                    priceLevel      = :priceLevel,
@@ -374,7 +396,23 @@ export async function syncFromSage(salesOrderNo: string): Promise<SyncFromSageRe
                                                    quantityOrdered = :quantityOrdered,
                                                    unitPrice       = :unitPrice,
                                                    extensionAmt    = :extensionAmt,
-                                                   lineStatus      = :lineStatus`;
+                                                   lineStatus      = :lineStatus,
+                                                   history         = JSON_ARRAY_APPEND(
+                                                           IFNULL(history, '[]'),
+                                                           '$',
+                                                           JSON_OBJECT('action', 'syncFromSage(update)',
+                                                                       'changes', JSON_OBJECT(
+                                                                               'itemCode', :itemCode,
+                                                                               'priceLevel', :priceLevel,
+                                                                               'commentText', :commentText,
+                                                                               'unitOfMeasure', :unitOfMeasure,
+                                                                               'quantityOrdered', :quantityOrdered,
+                                                                               'unitPrice', :unitPrice,
+                                                                               'extensionAmt', :extensionAmt,
+                                                                               'lineStatus', :lineStatus
+                                                                                  ),
+                                                                       'timestamp', NOW()
+                                                           ))`;
         const sqlDetailClean = `DELETE
                                 FROM b2b.cart_detail
                                 WHERE salesOrderNo = :salesOrderNo
