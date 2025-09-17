@@ -8,7 +8,7 @@ const debug = Debug('chums:lib:product:v2:seasons');
 
 export interface ProductSeasonRow extends Omit<ProductSeason, 'active' | 'properties' | 'product_available'>, RowDataPacket {
     active: 1 | 0,
-    properties?: string | null,
+    properties: string,
     product_available: 1 | 0,
 }
 
@@ -25,7 +25,7 @@ export async function loadSeasons({id, code}: LoadSeasonsProps): Promise<Product
                               product_available,
                               product_teaser,
                               ps.active,
-                              pms.properties,
+                              JSON_EXTRACT(IFNULL(pms.properties, '{}'), '$') AS properties,
                               ps.preseason_message as preSeasonMessage,
                               timestamp
                        FROM b2b_oscommerce.product_seasons ps
@@ -35,16 +35,11 @@ export async function loadSeasons({id, code}: LoadSeasonsProps): Promise<Product
                          AND (IFNULL(:code, '') = '' OR ps.code = :code)`;
         const [rows] = await mysql2Pool.query<ProductSeasonRow[]>(query, {id, code});
         return rows.map(row => {
-            let properties = {};
-            try {
-                properties = JSON.parse(row.properties || '{}');
-            } catch (err: unknown) {
-            }
             return {
                 ...row,
                 active: !!row.active,
                 product_available: !!row.product_available,
-                properties,
+                properties: JSON.parse(row.properties),
             }
         })
     } catch (err: unknown) {
