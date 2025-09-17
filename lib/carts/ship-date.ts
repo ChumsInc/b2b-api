@@ -24,7 +24,10 @@ function isWorkDay(day: Date | string | Dayjs): boolean {
 const nextShipDate = (daysToShip?: number) => {
     let remaining = (daysToShip ?? defaultDaysToShip);
     let shipDate = dayjs().startOf('day').set('hour', 8);
-    if (isWorkDay(shipDate) && dayjs().get('hour') > 16 || (dayjs().get('hour') > 11 && dayjs().get('day') === 5)) {
+    if (isWorkDay(shipDate) && (
+        (dayjs().get('day') < 5 && dayjs().get('hour') > 16)
+        || (dayjs().get('day') === 5 && dayjs().get('hour') > 11)
+    )) {
         shipDate = shipDate.add(1, 'd').startOf('day').set('hour', 8);
     }
     while (remaining > 0) {
@@ -42,7 +45,7 @@ export const getNextShipDate = async (req: Request, res: Response) => {
         res.json({
             nextShipDate: next
         })
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getNextShipDate()", err.message);
             res.json({error: err.message, name: err.name});
