@@ -24,7 +24,8 @@ export const aboutAPI = async (req:Request, res:Response) => {
                 version = 'error in aboutAPI'
             }
         }
-        res.json({site: '/api', version});
+        const site = req.headers.host === 'intranet.chums.com' ? '/api/b2b' : '/api';
+        res.json({site, version});
     } catch(err) {
         if (err instanceof Error) {
             debug("aboutAPI()", err.message);

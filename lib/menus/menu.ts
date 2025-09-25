@@ -351,6 +351,21 @@ export const getActiveMenus = async (req: Request, res: Response): Promise<void>
     }
 }
 
+export const getActiveMenu = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const menu = await loadMenu(req.params.id);
+        res.json({menu});
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("getActiveMenus()", err.message);
+            res.json({error: err.message, name: err.name});
+            return;
+        }
+        res.json({error: 'unknown error in getActiveMenus'});
+    }
+}
+
+
 export const getMenuItems = async (req: Request, res: Response): Promise<void> => {
     try {
         const items = await loadItems(req.params.parentId, req.params.id, {includeInactive: true});

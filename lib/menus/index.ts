@@ -2,7 +2,7 @@ import {validateUser} from 'chums-local-modules';
 import {Router} from "express";
 import {
     delMenu,
-    delMenuItem, getActiveMenus, getMenu,
+    delMenuItem, getActiveMenu, getActiveMenus, getMenu,
     getMenuItems,
     getMenus,
     getParents,
@@ -18,7 +18,7 @@ router.use(validateUser);
 router.get('/list.json', validateAdmin, getMenus);
 router.get('/active.json', getActiveMenus)
 router.get('/:id.json', getMenu);
-router.get('/active/:id.json', getActiveMenus);
+router.get('/active/:id.json', getActiveMenu);
 router.get('/parents/:id.json', getParents);
 router.get('/:parentId/items.json', getMenuItems);
 router.get('/:parentId/items/:id.json', getMenuItems);

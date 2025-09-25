@@ -1,9 +1,9 @@
-import {Router, Request, Response, NextFunction} from 'express';
+import {NextFunction, Request, Response, Router} from 'express';
 import {ValidatedUserProfile} from 'chums-types'
 import Debug from 'debug';
 import {default as productRouter} from './product/index.js';
 import {getKeyword, getKeywords} from './keywords/index.js';
-import {delPage, getPages, postPage, getPage} from './pages/index.js';
+import {delPage, getPage, getPages, postPage} from './pages/index.js';
 import {default as menuRouter} from './menus/index.js';
 import {delMessage, getCurrentMessages, getMessage, getMessages, postMessage} from './site-messages/index.js';
 import {formattedState, preloadJS, state} from './preload.js';
@@ -14,10 +14,11 @@ import {getSearch3, getSearch3b} from './search/search-v3.js'
 import {deprecationNotice, validateAdmin} from "./common.js";
 import {getItemSearch} from "./search/item-search.js";
 import {delBanner, getActiveBanners, getBanners, postBanner} from "./features/banners.js";
-import {validateUser} from "chums-local-modules";
+import {cookieConsentHelper, validateUser} from "chums-local-modules";
 import {aboutAPI} from "./about/index.js";
 import cartsRouter from "./carts/index.js";
 import {getProductImageValidation, renderProductImageValidationTable} from "./validation/product-images.js";
+import {getPreloadedStateV2} from "./preloaded-state/v2.js";
 
 const debug = Debug('chums:lib:index');
 const router = Router();
@@ -33,25 +34,24 @@ declare global {
     }
 }
 
-const isLocalHost = (ip:string|undefined) => {
+const isLocalHost = (ip: string | undefined) => {
     return ip === '::ffff:127.0.0.1' || ip === '127.0.0.1';
 }
 
-const debugLogger = (req:Request, res:Response, next:NextFunction) => {
-    if (!isLocalHost(req.ip) || true) {
-        debug(req.ip, req.method, req.originalUrl, req.get('referrer') || req.get('host'));
-    }
+const debugLogger = (req: Request, res: Response, next: NextFunction) => {
+    debug(req.ip, req.method, req.originalUrl, req.get('referrer') || req.get('host'));
     next();
 }
 
-router.use(debugLogger);
+router.use(debugLogger, cookieConsentHelper);
 
 router.get('/about.json', aboutAPI);
 router.use('/carts', cartsRouter);
 
 // used with B2B website
 router.post('/error-reporting', postError);
-router.get('/error-reporting.json', getErrors);
+router.get('/error-reporting.json', validateUser, validateAdmin, getErrors);
+
 // router.use('/features', features.router);
 router.get('/features/slides/:id(\\d+)', getSlides);
 router.get('/features/slides/active', getActiveSlides);
@@ -73,6 +73,7 @@ router.post('/messages.json', validateUser, validateAdmin, postMessage);
 router.put('/messages/:id(\\d+).json', validateUser, validateAdmin, postMessage);
 router.delete('/messages/:id(\\d+).json', validateUser, validateAdmin, delMessage);
 
+router.get('/preload/v2/state.json', getPreloadedStateV2)
 router.get('/preload/state/formatted', formattedState);
 router.get('/preload/state.json', formattedState);
 router.get('/preload/state.js', preloadJS);
