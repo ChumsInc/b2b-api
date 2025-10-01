@@ -14,11 +14,13 @@ import {getSearch3, getSearch3b} from './search/search-v3.js'
 import {deprecationNotice, validateAdmin} from "./common.js";
 import {getItemSearch} from "./search/item-search.js";
 import {delBanner, getActiveBanners, getBanners, postBanner} from "./features/banners.js";
-import {cookieConsentHelper, validateUser} from "chums-local-modules";
+import {validateUser} from "chums-local-modules";
 import {aboutAPI} from "./about/index.js";
 import cartsRouter from "./carts/index.js";
 import {getProductImageValidation, renderProductImageValidationTable} from "./validation/product-images.js";
-import {getPreloadedStateV2} from "./preloaded-state/v2.js";
+import {getPreloadedStateV2, getPreloadedStateV2js} from "./preloaded-state/v2.js";
+import {cookieConsentHelper, getCookieConsent, postCookieConsent} from "cookie-consent";
+import {getCookieConsentInfo} from "./cookie-consent/index.js";
 
 const debug = Debug('chums:lib:index');
 const router = Router();
@@ -47,6 +49,9 @@ router.use(debugLogger, cookieConsentHelper);
 
 router.get('/about.json', aboutAPI);
 router.use('/carts', cartsRouter);
+router.get('/cookie-consent.json', getCookieConsent);
+router.get('/cookie-consent/info.json', getCookieConsentInfo);
+router.post('/cookie-consent.json', postCookieConsent);
 
 // used with B2B website
 router.post('/error-reporting', postError);
@@ -74,6 +79,7 @@ router.put('/messages/:id(\\d+).json', validateUser, validateAdmin, postMessage)
 router.delete('/messages/:id(\\d+).json', validateUser, validateAdmin, delMessage);
 
 router.get('/preload/v2/state.json', getPreloadedStateV2)
+router.get('/preload/v2/state.js', getPreloadedStateV2js)
 router.get('/preload/state/formatted', formattedState);
 router.get('/preload/state.json', formattedState);
 router.get('/preload/state.js', preloadJS);

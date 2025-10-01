@@ -2,7 +2,7 @@ import {PreloadedState, SellAsVariantsProduct} from "b2b-types";
 import Debug from "debug";
 import {loadKeywords} from "../keywords/index.js";
 import {loadCategory} from "../product/v2/category.js";
-import {loadPage} from "../pages/page.js";
+import {loadPage, loadPageContent} from "../pages/page.js";
 import {loadProduct} from "../product/v2/product.js";
 import {
     defaultCartItem,
@@ -16,7 +16,7 @@ import {
 import {loadMenu} from "../menus/menu.js";
 import {loadCurrentMessages} from "../site-messages/messages.js";
 import {loadBanners} from "../features/banners.js";
-import {loadCookieConsent, consentCookieName} from "chums-local-modules";
+import {loadCookieConsent, consentCookieName, HasUUID} from "cookie-consent";
 import {Request, Response} from "express";
 
 
@@ -25,7 +25,7 @@ const debug = Debug('chums:lib:preloaded-state:v2');
 const productMenuId = process.env.PRODUCT_MENU_ID ?? 2;
 const resourcesMenuId = process.env.RESOURCES_MENU_ID ?? 122;
 
-const emptyState: PreloadedState = {
+const getEmptyState = ():PreloadedState => ({
     app: {
         nonce: null,
     },
@@ -45,6 +45,7 @@ const emptyState: PreloadedState = {
         status: 'idle',
         record: null,
         dismissed: false,
+        details: null,
     },
     keywords: {
         list: [],
@@ -96,14 +97,15 @@ const emptyState: PreloadedState = {
         ignored: null,
         lastChecked: 0,
     }
-}
+})
 
 export interface BuildPreloadedStateOptions {
     keyword?: string | null;
     uuid?: string | null;
+    sku?: string;
 }
 
-export async function buildPreloadedState({keyword, uuid}: BuildPreloadedStateOptions): Promise<PreloadedState> {
+export async function buildPreloadedState({keyword, uuid, sku}: BuildPreloadedStateOptions): Promise<PreloadedState> {
     try {
         const keywords = await loadKeywords({includeInactive: false});
         const productMenu = await loadMenu(productMenuId);
@@ -112,7 +114,7 @@ export async function buildPreloadedState({keyword, uuid}: BuildPreloadedStateOp
         const banners = await loadBanners({active: true});
         const currentKeyword = keywords.find(kw => kw.keyword === keyword) ?? null;
 
-        const state: PreloadedState = {...emptyState,}
+        const state: PreloadedState = {...getEmptyState(),}
         state.keywords.list = keywords;
         state.keywords.loaded = true;
         state.page.list = keywords.filter(kw => kw.pagetype === 'page');
@@ -124,8 +126,11 @@ export async function buildPreloadedState({keyword, uuid}: BuildPreloadedStateOp
         state.banners.loaded = new Date().valueOf();
         if (currentKeyword?.pagetype === 'page') {
             const page = await loadPage({keyword: currentKeyword?.keyword});
-            state.page.keyword = page ?? null;
-            state.page.content = page ?? null
+            state.page.keyword = page?.keyword ?? null;
+            state.page.content = page ?? null;
+            if (page?.filename) {
+                state.page.html = await loadPageContent(page.filename);
+            }
         }
         if (currentKeyword?.pagetype === 'category') {
             const category = await loadCategory({keyword: currentKeyword?.keyword});
@@ -135,14 +140,15 @@ export async function buildPreloadedState({keyword, uuid}: BuildPreloadedStateOp
         }
         if (currentKeyword?.pagetype === 'product') {
             const product = await loadProduct({keyword: currentKeyword?.keyword, complete: true});
-            const variant = hasVariants(product) ? defaultVariant(product as SellAsVariantsProduct) : null;
+            const variant = hasVariants(product) ? defaultVariant(product as SellAsVariantsProduct, sku) : null;
             state.products.product = product;
+            state.products.keyword = product?.keyword ?? null;
             state.products.selectedProduct = variant?.product ?? product ?? null;
             state.products.variantId = variant?.id ?? null;
             state.products.msrp = getPrice(variant?.product ?? product ?? null);
             state.products.customerPrice = state.products.msrp;
             state.products.salesUM = getSalesUM(variant?.product ?? product ?? null);
-            state.products.cartItem = defaultCartItem(variant?.product ?? product ?? null);
+            state.products.cartItem = defaultCartItem(variant?.product ?? product ?? null, {itemCode: sku});
             state.products.colorCode = state.products.cartItem?.colorCode
                 ?? variant?.product?.defaultColor
                 ?? product?.defaultColor
@@ -167,11 +173,12 @@ export async function buildPreloadedState({keyword, uuid}: BuildPreloadedStateOp
     }
 }
 
-export const getPreloadedStateV2 = async (req: Request, res: Response): Promise<void> => {
+export const getPreloadedStateV2 = async (req: Request, res: Response<unknown, HasUUID>): Promise<void> => {
     try {
         const params: BuildPreloadedStateOptions = {
             keyword: req.query.keyword as string ?? null,
-            uuid: req.query.uuid as string ?? req.signedCookies[consentCookieName] ?? null,
+            uuid: req.query.uuid as string ?? req.signedCookies[consentCookieName] ?? res.locals.uuid ?? null,
+            sku: req.query.sku as string ?? null,
         }
         const state = await buildPreloadedState(params);
         res.json(state);
@@ -182,5 +189,24 @@ export const getPreloadedStateV2 = async (req: Request, res: Response): Promise<
             return;
         }
         res.json({error: 'unknown error in getPreloadedStateV2'});
+    }
+}
+
+export const getPreloadedStateV2js = async (req: Request, res: Response<unknown, HasUUID>): Promise<void> => {
+    try {
+        const params: BuildPreloadedStateOptions = {
+            keyword: req.query.keyword as string ?? null,
+            uuid: req.query.uuid as string ?? req.signedCookies[consentCookieName] ?? res.locals.uuid ?? null,
+            sku: req.query.sku as string ?? null,
+        }
+        const state = await buildPreloadedState(params);
+        const js = 'window.__PRELOADED_STATE__ = ' + JSON.stringify(state, undefined, 2);
+        res.set('Content-Type', 'application/javascript').send(js);
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("getPreloadedStateV2js()", err.message);
+        }
+        const js = 'window.__PRELOADED_STATE__ = ' + JSON.stringify({}, undefined, 2);
+        res.set('Content-Type', 'application/javascript').send(js);
     }
 }

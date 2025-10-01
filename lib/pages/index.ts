@@ -1,5 +1,4 @@
 import Debug from 'debug';
-import {readFile, stat} from "node:fs/promises";
 import {Request, Response} from 'express'
 import {deletePage, loadPage, loadPages, savePage} from "./page.js";
 
@@ -8,15 +7,6 @@ const debug = Debug('chums:lib:pages:index');
 export const getPages = async (req: Request, res: Response) => {
     try {
         const pages = await loadPages(req.params);
-        if (req.params.keyword && pages.length && pages[0].filename) {
-            const path = `/var/www/${pages[0].filename}`;
-            try {
-                await stat(path);
-                const content = await readFile(path);
-                pages[0].content = Buffer.from(content).toString();
-            } catch (err) {
-            }
-        }
         res.json({pages});
     } catch (err) {
         if (err instanceof Error) {
@@ -41,7 +31,7 @@ export const getPage = async (req: Request, res: Response) => {
                 })
         }
         res.json({page});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getPage()", err.message);
             return res.json({error: err.message, name: err.name});
@@ -50,11 +40,11 @@ export const getPage = async (req: Request, res: Response) => {
     }
 }
 
-export const postPage = async (req:Request, res:Response) => {
+export const postPage = async (req: Request, res: Response) => {
     try {
         const page = await savePage(req.body);
         res.json({page});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postPage()", err.message);
             return res.json({error: err.message, name: err.name});
@@ -63,7 +53,7 @@ export const postPage = async (req:Request, res:Response) => {
     }
 };
 
-export const delPage = async (req:Request, res:Response) => {
+export const delPage = async (req: Request, res: Response) => {
     try {
         const params = {
             id: req.params.id,
@@ -74,7 +64,7 @@ export const delPage = async (req:Request, res:Response) => {
         }
         const pages = await deletePage({id: page.id});
         res.json({pages});
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("delPage()", err.message);
             return res.json({error: err.message, name: err.name});

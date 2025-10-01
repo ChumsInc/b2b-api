@@ -3,6 +3,8 @@ import {mysql2Pool} from "chums-local-modules";
 import {ContentPage} from "b2b-types";
 import {ContentPageMoreData, ContentPageRow} from "./types.js";
 import {ResultSetHeader} from "mysql2";
+import {readFile, stat} from 'node:fs/promises'
+import path from 'node:path'
 
 const debug = Debug('chums:lib:pages:pages');
 
@@ -23,23 +25,25 @@ const DEFAULT_PAGE: ContentPage = {
     requiresLogin: false,
 };
 
-export const loadPages = async ({id = null, keyword = null}: {
-    id?: string | number | null;
+export interface LoadPagesProps {
+    id?: number | string | null;
     keyword?: string | null;
-}): Promise<ContentPage[]> => {
+}
+
+export const loadPages = async ({id = null, keyword = null}: LoadPagesProps): Promise<ContentPage[]> => {
     try {
         const query = `SELECT id,
                               keyword,
                               title,
-                              meta_description AS metaDescription,
+                              meta_description                           AS metaDescription,
                               content,
                               filename,
                               changefreq,
                               priority,
-                              more_data        AS additionalData,
-                              search_words     AS searchWords,
+                              JSON_EXTRACT(IFNULL(more_data, '{}'), '$') AS additionalData,
+                              search_words                               AS searchWords,
                               status,
-                              redirect_to      AS redirectTo,
+                              redirect_to                                AS redirectTo,
                               timestamp
                        FROM b2b_oscommerce.pages
                        WHERE (IFNULL(:id, '') = '' OR id = :id)
@@ -47,8 +51,8 @@ export const loadPages = async ({id = null, keyword = null}: {
         const data = {id, keyword};
         const [rows] = await mysql2Pool.query<ContentPageRow[]>(query, data);
         return rows.map(row => {
-            const {more_data, status, ...rest} = row;
-            const moreData = JSON.parse(row.additionalData ?? '{}');
+            const {additionalData, status, ...rest} = row;
+            const moreData = JSON.parse(additionalData ?? '{}');
             return {
                 ...rest,
                 status: status === 1,
@@ -75,6 +79,9 @@ export async function loadPage({id, keyword}: {
             return null;
         }
         const [page] = await loadPages({keyword, id});
+        if (page && page.filename) {
+            page.content = await loadPageContent(page.filename);
+        }
         return page ?? null;
     } catch (err) {
         if (err instanceof Error) {
@@ -83,6 +90,28 @@ export async function loadPage({id, keyword}: {
         }
         debug("loadPage()", err);
         return Promise.reject(new Error('Error in loadPage()'));
+    }
+}
+
+export async function loadPageContent(filename: string): Promise<string | null> {
+    try {
+        const src = path.resolve('/var/www/b2b-content/content', filename);
+        const relative = path.relative('/var/www/b2b-content/content', src);
+        if (relative.startsWith('..') || path.isAbsolute(relative)) {
+            return null;
+        }
+        const stats = await stat(src);
+        if (stats.isFile()) {
+            return await readFile(src, 'utf8');
+        }
+        return null
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            console.debug("loadPageContent()", err.message);
+            return null;
+        }
+        console.debug("loadPageContent()", err);
+        return null;
     }
 }
 

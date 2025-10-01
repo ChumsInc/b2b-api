@@ -162,12 +162,29 @@ export const hasVariants = (product: Product | null): boolean => {
     return false
 }
 
-export const defaultVariant = (product: SellAsVariantsProduct): ProductVariant | null => {
+export const defaultVariant = (product: SellAsVariantsProduct, sku?: string): ProductVariant | null => {
     const variants: ProductVariant[] = product.variants ?? [];
     const activeVariants = variants.filter(v => v.status);
+    if (sku) {
+        let variant = variants.find(v => v.product?.itemCode === sku);
+        if (variant) {
+            return variant;
+        }
+        [variant] = variants.filter(v => {
+            if (!isSellAsColors(v.product)) {
+                return false;
+            }
+            const items:ProductColorItem[] = v.product.items;
+            return items.filter(item => item.itemCode === sku).length > 0
+        })
+        if (variant) {
+            return variant;
+        }
+    }
     const [variant] = activeVariants.filter(v => v.isDefaultVariant);
     return variant ?? activeVariants[0] ?? null;
 };
+
 
 
 export const getPrice = (product: Product): string[] => {
