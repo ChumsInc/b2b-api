@@ -25,16 +25,16 @@ import {getCookieConsentInfo} from "./cookie-consent/index.js";
 const debug = Debug('chums:lib:index');
 const router = Router();
 
-declare global {
-    // eslint-disable-next-line @typescript-eslint/no-namespace
-    namespace Express {
-        interface Locals {
-            valid: boolean;
-            status?: string;
-            profile?: ValidatedUserProfile;
-        }
-    }
-}
+// declare global {
+//     // eslint-disable-next-line @typescript-eslint/no-namespace
+//     namespace Express {
+//         interface Locals {
+//             valid: boolean;
+//             status?: string;
+//             profile?: ValidatedUserProfile;
+//         }
+//     }
+// }
 
 const isLocalHost = (ip: string | undefined) => {
     return ip === '::ffff:127.0.0.1' || ip === '127.0.0.1';
@@ -89,15 +89,16 @@ router.get('/search.json', getSearch3b);
 router.get('/search/v3/:term', getSearch3);
 router.get('/search/items/:term', deprecationNotice, getItemSearch);
 router.get('/search/:term/:limit(\\d+)', [deprecationNotice, getSearchPages, getSearchProduct, getSearchProducts, sendSearchResult]);
-router.get('/pages.json', getPages);
-router.get('/pages/:id(\\d+).json', getPage);
+router.get('/pages.json', validateUser, validateAdmin, getPages);
+router.get('/pages/id/:id.json', validateUser, validateAdmin, getPage);
+// router.get('/pages/:id(\\d+).json', getPage);
 router.get('/pages/:keyword.json', getPage);
-router.get('/pages/:id(\\d+)?', getPages);
-router.get('/pages/:keyword?', getPages);
+// router.get('/pages/:id(\\d+)?', getPages);
+// router.get('/pages/:keyword?', getPages);
 router.post('/pages/', validateUser, validateAdmin, postPage);
 router.post('/pages.json', validateUser, validateAdmin, postPage);
-router.put('/pages/:id(\\d+).json', validateUser, validateAdmin, postPage);
-router.delete('/pages/:id(\\d+)', validateUser, validateAdmin, delPage);
+router.put('/pages/:id.json', validateUser, validateAdmin, postPage);
+router.delete('/pages/:id.json', validateUser, validateAdmin, delPage);
 
 router.get('/validate/product/images.json', validateUser, validateAdmin, getProductImageValidation)
 router.get('/validate/product/images.html', validateUser, validateAdmin, renderProductImageValidationTable)

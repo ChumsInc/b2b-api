@@ -1,12 +1,18 @@
 import Debug from 'debug';
 import {Request, Response} from 'express'
-import {deletePage, loadPage, loadPages, savePage} from "./page.js";
+import {deletePage, loadPage, loadPages, LoadPagesProps, savePage} from "./page.js";
+import {ValidatedUser} from "chums-local-modules";
 
 const debug = Debug('chums:lib:pages:index');
 
-export const getPages = async (req: Request, res: Response) => {
+export const getPages = async (req: Request, res: Response<unknown, ValidatedUser>) => {
     try {
-        const pages = await loadPages(req.params);
+        const params: LoadPagesProps = {
+            id: req.params.id,
+            keyword: req.params.keyword,
+            includeInactive: res.locals.profile?.roles.includes('web_admin') || res.locals.profile?.roles.includes('root'),
+        }
+        const pages = await loadPages(params);
         res.json({pages});
     } catch (err) {
         if (err instanceof Error) {
@@ -17,11 +23,12 @@ export const getPages = async (req: Request, res: Response) => {
     }
 };
 
-export const getPage = async (req: Request, res: Response) => {
+export const getPage = async (req: Request, res: Response<unknown, ValidatedUser>) => {
     try {
         const params = {
             keyword: req.params.keyword,
             id: req.params.id,
+            includeInactive: res.locals.profile?.roles.includes('web_admin') || res.locals.profile?.roles.includes('root'),
         }
         const page = await loadPage(params);
         if (!page) {
@@ -40,7 +47,7 @@ export const getPage = async (req: Request, res: Response) => {
     }
 }
 
-export const postPage = async (req: Request, res: Response) => {
+export const postPage = async (req: Request, res: Response<unknown, ValidatedUser>) => {
     try {
         const page = await savePage(req.body);
         res.json({page});
@@ -53,10 +60,11 @@ export const postPage = async (req: Request, res: Response) => {
     }
 };
 
-export const delPage = async (req: Request, res: Response) => {
+export const delPage = async (req: Request, res: Response<unknown, ValidatedUser>) => {
     try {
         const params = {
             id: req.params.id,
+            includeInactive: res.locals.profile?.roles.includes('web_admin') || res.locals.profile?.roles.includes('root'),
         }
         const [page] = await loadPages(params);
         if (!page) {

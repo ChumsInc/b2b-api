@@ -28,9 +28,10 @@ const DEFAULT_PAGE: ContentPage = {
 export interface LoadPagesProps {
     id?: number | string | null;
     keyword?: string | null;
+    includeInactive?: boolean;
 }
 
-export const loadPages = async ({id = null, keyword = null}: LoadPagesProps): Promise<ContentPage[]> => {
+export const loadPages = async ({id = null, keyword = null, includeInactive = false}: LoadPagesProps): Promise<ContentPage[]> => {
     try {
         const query = `SELECT id,
                               keyword,
@@ -47,8 +48,9 @@ export const loadPages = async ({id = null, keyword = null}: LoadPagesProps): Pr
                               timestamp
                        FROM b2b_oscommerce.pages
                        WHERE (IFNULL(:id, '') = '' OR id = :id)
-                         AND (IFNULL(:keyword, '') = '' OR keyword = :keyword)`;
-        const data = {id, keyword};
+                         AND (IFNULL(:keyword, '') = '' OR keyword = :keyword)
+                         AND (ifnull(:includeInactive, '') = '1' OR status = 1)`;
+        const data = {id, keyword, includeInactive: includeInactive ? 1 : 0};
         const [rows] = await mysql2Pool.query<ContentPageRow[]>(query, data);
         return rows.map(row => {
             const {additionalData, status, ...rest} = row;
@@ -70,15 +72,16 @@ export const loadPages = async ({id = null, keyword = null}: LoadPagesProps): Pr
     }
 };
 
-export async function loadPage({id, keyword}: {
+export async function loadPage({id, keyword, includeInactive = false}: {
     id?: number | string;
     keyword?: string;
+    includeInactive?: boolean;
 }): Promise<ContentPage | null> {
     try {
         if (!keyword && !id) {
             return null;
         }
-        const [page] = await loadPages({keyword, id});
+        const [page] = await loadPages({keyword, id, includeInactive});
         if (page && page.filename) {
             page.content = await loadPageContent(page.filename);
         }
@@ -177,8 +180,7 @@ export const savePage = async (body: ContentPage) => {
             more_data: JSON.stringify(more_data)
         };
         await mysql2Pool.query<ResultSetHeader>(query, data);
-        const [page] = await loadPages({id: body.id});
-        return page;
+        return await loadPage({id: body.id, includeInactive: true});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("savePage()", err.message);
@@ -198,7 +200,7 @@ export const deletePage = async ({id}: {
                        WHERE id = :id`;
         const data = {id};
         await mysql2Pool.query(query, data);
-        return await loadPages({});
+        return await loadPages({includeInactive: true});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("deletePage()", err.message);
