@@ -6,7 +6,7 @@ import {loadCart, loadCartHeader, loadCartOrder, loadCustomerCarts} from "./load
 import type {AddToCartBody, UpdateCartHeaderBody, UpdateCartItemBody} from "./types/cart-action-props.d.ts";
 import {getUserId, isUpdateCartItemBody, isUpdateCartItemsBody} from "./utils.js";
 import {syncFromC2} from "./sync-cart.js";
-import {B2BCart} from "./types/cart.js";
+import {B2BCart} from "chums-types/b2b";
 import {duplicateSalesOrder} from "./duplicate-sales-order.js";
 
 const debug = Debug('chums:lib:carts:cart-methods');

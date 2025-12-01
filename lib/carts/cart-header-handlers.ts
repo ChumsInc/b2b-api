@@ -4,7 +4,7 @@ import {mysql2Pool} from "chums-local-modules";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 import {parseCustomerKey} from "./cart-utils.js";
 import type {CartActionProps, UpdateCartProps} from "./types/cart-action-props.d.ts";
-import type {B2BCart} from "./types/cart.d.ts";
+import type {B2BCart} from "chums-types/b2b";
 import {Decimal} from "decimal.js";
 
 const debug = Debug('chums:lib:carts:cart-header-handlers');

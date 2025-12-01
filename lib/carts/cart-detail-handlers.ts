@@ -12,8 +12,7 @@ import type {
     LoadCartItemProps,
     UpdateCartItemProps
 } from "./types/cart-action-props.d.ts";
-import type {B2BCart} from "./types/cart.d.ts";
-import type {B2BCartDetail} from "./types/cart-detail.d.ts";
+import type {B2BCart, B2BCartDetail} from "chums-types/b2b";
 import {B2BCartItemPrice, UnitOfMeasureLookup} from "./types/cart-utils.js";
 
 const debug = Debug('chums:lib:carts:cart-detail-handlers');
@@ -23,6 +22,7 @@ export interface AddItemsToCartOptions {
     allowZeroPrice?: boolean;
     userId?: number;
 }
+
 /**
  * Add an item to the cart, price is calculated based on Customer, Item, or Price Code pricing.
  *
@@ -39,23 +39,24 @@ export async function addToCart({
                                     ...itemProps
                                 }: AddToCartProps | AddToNewCartProps): Promise<B2BCart | null> {
     try {
+        let _cartId = cartId;
         const customer = await parseCustomerKey(customerKey);
         if (customer.shipToCode) {
             shipToCode = customer.shipToCode;
         }
         let cart: B2BCart | null;
-        if (!cartId) {
+        if (!_cartId) {
             cart = await createNewCart({customerKey, userId, shipToCode, customerPONo});
         } else {
-            cart = await loadCart({cartId, userId});
+            cart = await loadCart({cartId: _cartId, userId});
         }
 
         if (!cart) {
             return Promise.reject(new Error('Error retrieving cart'));
         }
         await addItemsToCart(cart, [itemProps]);
-        cartId = cart.header.id;
-        return await loadCart({cartId, userId});
+        _cartId = cart.header.id;
+        return await loadCart({cartId: _cartId!, userId});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("addToCart()", err.message);
@@ -133,10 +134,12 @@ export async function addItemsToCart(cart: B2BCart, items: AddToCartBody[], opti
                 unitPrice: unitPrice ?? 0,
                 extensionAmt: new Decimal(item.quantityOrdered ?? 0).times(unitPrice ?? 0).toString(),
                 history: JSON.stringify([
-                    {action: 'addItemsToCart',
+                    {
+                        action: 'addItemsToCart',
                         'userId': options?.userId ?? 0,
                         args: item,
-                        timestamp: new Date().toISOString()}
+                        timestamp: new Date().toISOString()
+                    }
                 ])
             };
             await mysql2Pool.query(sql, args);
@@ -229,17 +232,17 @@ export async function removeCartItem({userId, cartId, cartItemId}: CartItemActio
     try {
         const item = await loadCartItem({userId, cartId, cartItemId});
         const sql = `UPDATE b2b.cart_detail
-                     SET lineStatus = :lineStatus,
+                     SET lineStatus      = :lineStatus,
                          quantityOrdered = 0,
-                         extensionAmt = 0,
-                         history = JSON_ARRAY_APPEND(IFNULL(history, '[]'), '$', JSON_EXTRACT(:history, '$'))
+                         extensionAmt    = 0,
+                         history         = JSON_ARRAY_APPEND(IFNULL(history, '[]'), '$', JSON_EXTRACT(:history, '$'))
                      WHERE cartHeaderId = :cartId
                        AND id = :cartItemId`
         const args = {
             cartId,
             cartItemId,
             lineStatus: item.soDetail?.lineKey ? 'U' : 'X',
-            history: JSON.stringify({action: 'removeCartItem', userId,  args: {cartId, cartItemId}})
+            history: JSON.stringify({action: 'removeCartItem', userId, args: {cartId, cartItemId}})
         };
         await mysql2Pool.query(sql, args);
         await updateCartTotals(cartId);

@@ -1,9 +1,7 @@
 import Debug from 'debug';
 import {mysql2Pool} from "chums-local-modules";
 import {LoadCartDetailProps, LoadCartProps, LoadCartsProps} from "./types/cart-action-props.js";
-import {B2BCartHeader, B2BUserInfo, CartPrintStatus} from "./types/cart-header.js";
-import {B2BCartDetail} from "./types/cart-detail.js";
-import {B2BCart, CartStatusProp} from "./types/cart.js";
+import {B2BCart, B2BCartDetail, B2BCartHeader, B2BUserInfo, CartPrintStatus, CartStatusProp} from "chums-types/b2b";
 import {B2BCartDetailRow, B2BCartHeaderRow} from "./types/cart-utils.js";
 
 const debug = Debug('chums:lib:carts:load-cart');
@@ -13,14 +11,21 @@ const debug = Debug('chums:lib:carts:load-cart');
     'O' - open order
     'C' - cart
  */
-export async function loadCartHeader({userId}: LoadCartsProps, status?: CartStatusProp):Promise<B2BCartHeader[]>;
-export async function loadCartHeader({userId, customerKey}: LoadCartsProps, status?: CartStatusProp):Promise<B2BCartHeader[]>;
-export async function loadCartHeader({userId, customerKey, cartId}: LoadCartsProps, status?: CartStatusProp):Promise<B2BCartHeader[]>;
+export async function loadCartHeader({userId}: LoadCartsProps, status?: CartStatusProp): Promise<B2BCartHeader[]>;
 export async function loadCartHeader({
-                                    userId,
-                                    cartId,
-                                    customerKey
-                                }: LoadCartsProps, status?: CartStatusProp): Promise<B2BCartHeader[]> {
+                                         userId,
+                                         customerKey
+                                     }: LoadCartsProps, status?: CartStatusProp): Promise<B2BCartHeader[]>;
+export async function loadCartHeader({
+                                         userId,
+                                         customerKey,
+                                         cartId
+                                     }: LoadCartsProps, status?: CartStatusProp): Promise<B2BCartHeader[]>;
+export async function loadCartHeader({
+                                         userId,
+                                         cartId,
+                                         customerKey
+                                     }: LoadCartsProps, status?: CartStatusProp): Promise<B2BCartHeader[]> {
     try {
         const sql = `SELECT h.id,
                             h.salesOrderNo,
@@ -107,9 +112,9 @@ export async function loadCartHeader({
                                         ON soh.Company = c.Company AND soh.SalesOrderNo = h.salesOrderNo
                      WHERE c.CustomerStatus = 'A'
                        AND IF(
-                             ifnull(:status, 'C') = 'C',  
-                             h.orderType in ('Q', '_'), 
-                             h.orderType in ('S', 'B') AND h.orderStatus <> 'C'
+                             IFNULL(:status, 'C') = 'C',
+                             h.orderType IN ('Q', '_'),
+                             h.orderType IN ('S', 'B') AND h.orderStatus <> 'C'
                            )
                        AND h.orderStatus NOT IN ('X', 'Z')
                        AND (IFNULL(:cartId, '') = '' OR h.id = :cartId)
@@ -304,7 +309,7 @@ export async function loadCartDetail({cartId, userId}: LoadCartDetailProps): Pro
     }
 }
 
-export async function loadCustomerCarts({userId, customerKey}:LoadCartsProps):Promise<B2BCart[]> {
+export async function loadCustomerCarts({userId, customerKey}: LoadCartsProps): Promise<B2BCart[]> {
     try {
         const headers = await loadCartHeader({userId, customerKey}, 'C');
         const carts: B2BCart[] = [];
@@ -313,7 +318,7 @@ export async function loadCustomerCarts({userId, customerKey}:LoadCartsProps):Pr
             carts.push({header, detail});
         }
         return carts;
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("loadCustomerCarts()", err.message);
             return Promise.reject(err);
@@ -324,7 +329,7 @@ export async function loadCustomerCarts({userId, customerKey}:LoadCartsProps):Pr
 
 }
 
-export async function loadCart({cartId, userId}: LoadCartProps, cartStatus?:CartStatusProp): Promise<B2BCart | null> {
+export async function loadCart({cartId, userId}: LoadCartProps, cartStatus?: CartStatusProp): Promise<B2BCart | null> {
     try {
         const [header] = await loadCartHeader({cartId, userId}, cartStatus ?? 'C');
         if (!header) {

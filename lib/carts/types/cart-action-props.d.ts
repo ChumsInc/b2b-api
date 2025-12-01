@@ -1,6 +1,4 @@
-import {ShipToAddress} from "b2b-types";
-import {B2BCartDetail} from "./cart-detail.d.ts";
-import {B2BCartHeader} from "./cart-header.d.ts";
+import {B2BCartDetail, B2BCartHeader, ShipToAddress} from "chums-types/b2b";
 
 export type CartAction =
     'append'
@@ -19,13 +17,13 @@ export type CartAction =
     | 'update';
 
 
-export interface CartActionProps extends Partial<Pick<B2BCartHeader, 'shipToCode'|'customerPONo'>> {
+export interface CartActionProps extends Partial<Pick<B2BCartHeader, 'shipToCode' | 'customerPONo'>> {
     userId: string | number;
     cartId: string | number;
     customerKey: string;
 }
 
-export interface NewCartActionProps extends Partial<Pick<B2BCartHeader, 'shipToCode'|'customerPONo'>> {
+export interface NewCartActionProps extends Partial<Pick<B2BCartHeader, 'shipToCode' | 'customerPONo'>> {
     userId: string | number;
     cartId: null;
     customerKey: string;
@@ -135,7 +133,7 @@ export interface AddToCartBody extends Pick<B2BCartDetail, 'itemCode' | 'unitOfM
 }
 
 export type AddToCartProps = Omit<CartItemActionProps, 'cartItemId'> & AddToCartBody;
-export type AddToNewCartProps = Omit<CartItemActionProps, 'cartItemId'|'cartId'> & AddToCartBody & NewCartActionProps;
+export type AddToNewCartProps = Omit<CartItemActionProps, 'cartItemId' | 'cartId'> & AddToCartBody & NewCartActionProps;
 export type UpdateCartProps = CartActionProps & UpdateCartHeaderBody;
 export type UpdateCartItemBody = Pick<B2BCartDetail, 'quantityOrdered' | 'commentText'>;
 

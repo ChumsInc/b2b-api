@@ -4,7 +4,7 @@ import {ResultSetHeader, RowDataPacket} from "mysql2";
 import {AddToCartBody} from "./types/cart-action-props.js";
 import {addItemsToCart} from "./cart-detail-handlers.js";
 import {loadCart} from "./load-cart.js";
-import {B2BCart} from "./types/cart.js";
+import {B2BCart} from "chums-types/b2b";
 
 const debug = Debug('chums:lib:carts:duplicate-sales-order');
 
@@ -18,7 +18,6 @@ export interface DuplicateSalesOrderProps {
 }
 
 export async function duplicateSalesOrder({
-                                              customerKey,
                                               salesOrderNo,
                                               userId,
                                               cartName,
@@ -102,7 +101,7 @@ export async function duplicateSalesOrder({
         if (!cart) {
             return Promise.reject(new Error(`Unable to load duplicated sales order: ${salesOrderNo}`));
         }
-        await addItemsToCart(cart, rows, allowZeroPrice);
+        await addItemsToCart(cart, rows, {allowZeroPrice, userId: +userId});
         return await loadCart({cartId, userId});
     } catch (err: unknown) {
         if (err instanceof Error) {

@@ -1,6 +1,6 @@
 import Debug from 'debug';
 import {apiFetchJSON, mysql2Pool} from "chums-local-modules";
-import {SalesOrderDetailLine} from "b2b-types";
+import {SalesOrderDetailLine} from "chums-types/b2b";
 import {Decimal} from "decimal.js";
 import {dbDate, dbDateTimeFormat, loadUserIdFromSageUser} from "./utils.js";
 import {Request, Response} from 'express'
@@ -435,18 +435,18 @@ export async function syncFromSage(salesOrderNo: string): Promise<SyncFromSageRe
     }
 }
 
-export async function syncToSage(cartId: number): Promise<unknown> {
-    try {
-
-    } catch (err: unknown) {
-        if (err instanceof Error) {
-            debug("syncToSage()", err.message);
-            return Promise.reject(err);
-        }
-        debug("syncToSage()", err);
-        return Promise.reject(new Error('Error in syncToSage()'));
-    }
-}
+// export async function syncToSage(cartId: number): Promise<unknown> {
+//     try {
+//
+//     } catch (err: unknown) {
+//         if (err instanceof Error) {
+//             debug("syncToSage()", err.message);
+//             return Promise.reject(err);
+//         }
+//         debug("syncToSage()", err);
+//         return Promise.reject(new Error('Error in syncToSage()'));
+//     }
+// }
 
 export async function postSyncCarts(req: Request, res: Response): Promise<void> {
     try {

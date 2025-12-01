@@ -4,9 +4,8 @@ import {loadCart} from "./load-cart.js";
 import {getUserEmail, getUserId, getUserName} from "./utils.js";
 import {syncFromC2} from "./sync-cart.js";
 import {Decimal} from "decimal.js";
-import {EmailDetailLine} from "./types/cart-detail.js";
+import {B2BCartHeader, EmailDetailLine} from "chums-types/b2b";
 import numeral from "numeral";
-import {B2BCartHeader} from "./types/cart-header.js";
 import dayjs from "dayjs";
 import {sendEmail} from "chums-local-modules";
 import {SendMailProps} from "chums-local-modules/lib/mailer.js";
@@ -24,7 +23,6 @@ export async function getCartEmailHTML(req: Request, res: Response): Promise<voi
             res.status(401).json({error: 'Login is required'});
             return;
         }
-        const email = getUserEmail(res);
         const content = await buildCartEmail({customerKey, cartId, userId}, res);
         if (!content) {
             res.status(404).json({error: 'Cart not found'});
@@ -50,7 +48,6 @@ export async function getCartEmailText(req: Request, res: Response): Promise<voi
             res.status(401).json({error: 'Login is required'});
             return;
         }
-        const email = getUserEmail(res);
         const content = await buildCartEmail({customerKey, cartId, userId}, res);
         if (!content) {
             res.status(404).json({error: 'Cart not found'});
@@ -111,7 +108,7 @@ export async function sendCartEmail(req: Request, res: Response): Promise<void> 
             res.status(404).json({error: 'Cart not found'});
             return;
         }
-        const message:SendMailProps = {
+        const message: SendMailProps = {
             from: {name: 'Chums B2B', address: 'automated@chums.com'},
             to: {name, address: email},
             subject: `Proposed Order: ${cartId}`,
@@ -130,7 +127,7 @@ export async function sendCartEmail(req: Request, res: Response): Promise<void> 
 }
 
 
-export async function buildCartEmailData(arg:BuildCartEmailProps):Promise<EmailCart|null> {
+export async function buildCartEmailData(arg: BuildCartEmailProps): Promise<EmailCart | null> {
     try {
         const {customerKey, cartId, userId} = arg;
         await syncFromC2({customerKey, cartId});
@@ -167,8 +164,8 @@ export async function buildCartEmailData(arg:BuildCartEmailProps):Promise<EmailC
                 suggestedRetailPrice: line.itemType === '4'
                     ? 'N/A'
                     : (line.pricing.suggestedRetailPrice
-                        ? numeral(line.pricing.suggestedRetailPrice).format('0,0.00')
-                        : 'N/A'
+                            ? numeral(line.pricing.suggestedRetailPrice).format('0,0.00')
+                            : 'N/A'
                     )
             }
         })
@@ -183,22 +180,26 @@ export async function buildCartEmailData(arg:BuildCartEmailProps):Promise<EmailC
             detail: detail,
             itemCount
         };
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
-            debug("buildCartEmailData()", err.message,  err.stack);
+            debug("buildCartEmailData()", err.message, err.stack);
             return Promise.reject(err);
         }
         debug("buildCartEmailData()", err);
         return Promise.reject(new Error('Error in buildCartEmailData()'));
     }
 }
+
 export interface BuildCartEmailProps {
     customerKey: string;
     cartId: string;
     userId: number;
 }
 
-export async function buildCartEmail(arg: BuildCartEmailProps, res: Response): Promise<{ html: string; textContent: string; } | null> {
+export async function buildCartEmail(arg: BuildCartEmailProps, res: Response): Promise<{
+    html: string;
+    textContent: string;
+} | null> {
     try {
         const data = await buildCartEmailData(arg);
         if (!data) {
