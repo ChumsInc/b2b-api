@@ -1,5 +1,5 @@
 import {buildPreloadedState, BuildPreloadedStateOptions} from "./v2.js";
-import {Banner, BannersState, PreloadedState} from "chums-types/b2b";
+import {Banner, PreloadedState} from "chums-types/b2b";
 import _debug from 'debug';
 import {Request, Response} from "express";
 import {consentCookieName, HasUUID} from "cookie-consent";
@@ -9,20 +9,26 @@ const debug = _debug('chums:lib:preloaded-state:v2-1');
 export interface BannersStateV2a {
     entities: Record<number, Banner>;
     ids: number[];
-    status: 'idle'|'loading'|'rejected';
+    status: 'idle' | 'loading' | 'rejected';
     updated: number;
 }
-export interface PreloadedStateV21 extends Omit<PreloadedState, 'banners'>{
+
+export interface PreloadedStateV21 extends Omit<PreloadedState, 'banners'> {
     banners?: BannersStateV2a
 }
-export async function buildPreloadedStateV2a({keyword, uuid, sku}:BuildPreloadedStateOptions):Promise<PreloadedStateV21> {
+
+export async function buildPreloadedStateV2a({
+                                                 keyword,
+                                                 uuid,
+                                                 sku
+                                             }: BuildPreloadedStateOptions): Promise<PreloadedStateV21> {
     try {
         const state = await buildPreloadedState({keyword, uuid, sku});
         return {
             ...state,
             banners: updateBannersState(state.banners?.list ?? [])
         }
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("buildPreloadedStateV2a()", err.message);
             return Promise.reject(err);
@@ -33,7 +39,7 @@ export async function buildPreloadedStateV2a({keyword, uuid, sku}:BuildPreloaded
 
 }
 
-function updateBannersState(banners:Banner[]):BannersStateV2a {
+function updateBannersState(banners: Banner[]): BannersStateV2a {
     const entities: BannersStateV2a['entities'] = {};
     const ids: BannersStateV2a['ids'] = [];
     banners.forEach(banner => {
