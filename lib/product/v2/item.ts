@@ -1,6 +1,6 @@
 import Debug from 'debug';
 import {mysql2Pool} from 'chums-local-modules';
-import {ProductAdditionalData, ProductColorVariant} from "b2b-types";
+import {ProductAdditionalData, ProductColorVariant} from "chums-types/b2b";
 import {RowDataPacket} from "mysql2";
 import {Request, Response} from "express";
 import {loadSeasons} from './seasons.js';

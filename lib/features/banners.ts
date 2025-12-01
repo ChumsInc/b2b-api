@@ -1,7 +1,7 @@
 import Debug from "debug";
 import {mysql2Pool} from 'chums-local-modules';
 import dayjs from "dayjs";
-import {Banner} from "b2b-types";
+import {Banner} from "chums-types/b2b";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 import {Request, Response} from "express";
 

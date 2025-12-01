@@ -1,6 +1,6 @@
 import Debug from 'debug';
 import {mysql2Pool} from 'chums-local-modules';
-import {ColorProductUsage, ProductColor} from "b2b-types";
+import {ColorProductUsage, ProductColor} from "chums-types/b2b";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 import {Request, Response} from "express";
 

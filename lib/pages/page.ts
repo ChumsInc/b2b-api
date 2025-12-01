@@ -1,6 +1,6 @@
 import Debug from "debug";
 import {mysql2Pool} from "chums-local-modules";
-import {ContentPage} from "b2b-types";
+import {ContentPage} from "chums-types/b2b";
 import {ContentPageMoreData, ContentPageRow} from "./types.js";
 import {ResultSetHeader} from "mysql2";
 import {readFile, stat} from 'node:fs/promises'
@@ -18,7 +18,6 @@ const DEFAULT_PAGE: ContentPage = {
     filename: '',
     changefreq: '',
     priority: 0.5,
-    more_data: {},
     searchWords: '',
     status: false,
     redirectTo: 0,

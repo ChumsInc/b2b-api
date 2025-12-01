@@ -1,7 +1,7 @@
 import Debug from 'debug';
 import {mysql2Pool} from 'chums-local-modules';
 import {Request, Response} from "express";
-import {ProductCategory} from "b2b-types";
+import {ProductCategory} from "chums-types/b2b";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 import {
     deleteCategoryItem,
@@ -317,3 +317,4 @@ export async function delCategoryItem(req: Request, res: Response) {
         res.json({error: 'unknown error in deleteCategoryItem'});
     }
 }
+

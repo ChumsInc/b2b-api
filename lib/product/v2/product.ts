@@ -9,7 +9,7 @@ import {
     SellAsMixProduct,
     SellAsSelfProduct,
     SellAsVariantsProduct
-} from "b2b-types";
+} from "chums-types/b2b";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 import {Request, Response} from "express";
 import {loadProductItems} from "./item.js";
@@ -52,7 +52,7 @@ interface VariantRow extends Omit<ProductVariant, 'status' | 'isDefaultVariant'>
 }
 
 
-async function loadList({mfg = '%'}): Promise<ProductListItem[]> {
+async function loadList(): Promise<ProductListItem[]> {
     try {
         const query = `SELECT p.products_id                                      AS id,
                               pd.products_name                                   AS name,
@@ -99,7 +99,8 @@ async function loadList({mfg = '%'}): Promise<ProductListItem[]> {
                               cs.specials_new_products_price                     AS salePrice,
                               p.product_season_id,
                               s.code                                             AS season_code,
-                              JSON_EXTRACT(additional_data, '$.seasonAvailable') as seasonAvailable
+                              JSON_EXTRACT(additional_data, '$.seasonAvailable') AS seasonAvailable,
+                              JSON_EXTRACT(additional_data, '$.isRedirect')      AS isRedirect
                        FROM b2b_oscommerce.products p
                                 INNER JOIN b2b_oscommerce.products_description pd
                                            ON pd.products_id = p.products_id AND pd.language_id = 1
@@ -118,8 +119,7 @@ async function loadList({mfg = '%'}): Promise<ProductListItem[]> {
                                           USING (product_season_id)
                        WHERE p.manufacturers_id = 12
                        ORDER BY pd.products_id`;
-        const data = {mfg};
-        const [rows] = await mysql2Pool.query<ProductListItemRow[]>(query, data);
+        const [rows] = await mysql2Pool.query<ProductListItemRow[]>(query);
         return rows.map(row => {
             return {
                 ...row,
@@ -173,7 +173,7 @@ function parseProductRow(row: ProductRow): Product {
         additionalData: JSON.parse(additionalData || '{}'),
         season_available: !!season_available,
         inactiveItem: !!inactiveItem,
-        season_active: !!product_season_id ? !!season_active : null
+        season_active: product_season_id ? !!season_active : null
     };
 }
 
@@ -660,7 +660,7 @@ export async function postProduct(req: Request, res: Response) {
 
 export async function getProductList(req: Request, res: Response) {
     try {
-        const products = await loadList(req.params);
+        const products = await loadList();
         res.json({products});
     } catch (err) {
         if (err instanceof Error) {

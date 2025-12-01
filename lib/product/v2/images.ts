@@ -1,6 +1,6 @@
 import Debug from 'debug';
 import {mysql2Pool} from 'chums-local-modules';
-import {ProductAlternateImage, Product} from "b2b-types";
+import {ProductAlternateImage, Product} from "chums-types/b2b";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 import {NextFunction, Request, Response} from "express";
 
