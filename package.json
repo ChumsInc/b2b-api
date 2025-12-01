@@ -38,6 +38,7 @@
     "@types/node": "^24.0.4",
     "auto-changelog": "^2.4.0",
     "b2b-types": "github:ChumsInc/b2b-types",
+    "chums-types": "github:ChumsInc/chums-types",
     "eslint": "^9.29.0",
     "globals": "^16.2.0",
     "mocha": "^11.7.2",
