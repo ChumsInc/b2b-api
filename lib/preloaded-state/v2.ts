@@ -1,4 +1,4 @@
-import {PreloadedState, SellAsVariantsProduct} from "b2b-types";
+import {PreloadedState, SellAsVariantsProduct} from "chums-types/b2b";
 import Debug from "debug";
 import {loadKeywords} from "../keywords/index.js";
 import {loadCategory} from "../product/v2/category.js";
@@ -16,7 +16,7 @@ import {
 import {loadMenu} from "../menus/menu.js";
 import {loadCurrentMessages} from "../site-messages/messages.js";
 import {loadBanners} from "../features/banners.js";
-import {loadCookieConsent, consentCookieName, HasUUID} from "cookie-consent";
+import {consentCookieName, HasUUID, loadCookieConsent} from "cookie-consent";
 import {Request, Response} from "express";
 
 
@@ -25,7 +25,10 @@ const debug = Debug('chums:lib:preloaded-state:v2');
 const productMenuId = process.env.PRODUCT_MENU_ID ?? 2;
 const resourcesMenuId = process.env.RESOURCES_MENU_ID ?? 122;
 
-const getEmptyState = ():PreloadedState => ({
+type EmptyState = PreloadedState
+    & Required<Pick<PreloadedState, 'keywords' | 'page' | 'menu' | 'messages' | 'banners' | 'category' | 'products' | 'cookieConsent'>>;
+
+const getEmptyState = (): EmptyState => ({
     app: {
         nonce: null,
     },
@@ -38,7 +41,6 @@ const getEmptyState = ():PreloadedState => ({
     category: {
         keyword: null,
         category: null,
-        content: null,
         status: 'idle'
     },
     cookieConsent: {
@@ -54,10 +56,9 @@ const getEmptyState = ():PreloadedState => ({
     },
     menu: {
         productMenu: null,
-        items: [],
+        productMenuStatus: 'idle',
         resourcesMenu: null,
-        loading: [],
-        loaded: false,
+        resourcesMenuStatus: 'idle',
         isOpen: false,
     },
     messages: {
@@ -71,6 +72,7 @@ const getEmptyState = ():PreloadedState => ({
         status: 'idle',
         loaded: false,
         content: null,
+        html: null,
     },
     products: {
         keyword: null,
@@ -89,6 +91,7 @@ const getEmptyState = ():PreloadedState => ({
         cartItem: null,
         pricing: [],
         customerKey: null,
+        selectedItemCode: null,
     },
     version: {
         versionNo: null,
@@ -96,7 +99,7 @@ const getEmptyState = ():PreloadedState => ({
         changed: false,
         ignored: null,
         lastChecked: 0,
-    }
+    },
 })
 
 export interface BuildPreloadedStateOptions {
@@ -114,7 +117,7 @@ export async function buildPreloadedState({keyword, uuid, sku}: BuildPreloadedSt
         const banners = await loadBanners({active: true});
         const currentKeyword = keywords.find(kw => kw.keyword === keyword) ?? null;
 
-        const state: PreloadedState = {...getEmptyState(),}
+        const state = {...getEmptyState(),}
         state.keywords.list = keywords;
         state.keywords.loaded = true;
         state.page.list = keywords.filter(kw => kw.pagetype === 'page');
@@ -123,7 +126,7 @@ export async function buildPreloadedState({keyword, uuid, sku}: BuildPreloadedSt
         state.messages.list = messages;
         state.messages.loaded = new Date().valueOf();
         state.banners.list = banners;
-        state.banners.loaded = new Date().valueOf();
+        state.banners.loaded = true;
         if (currentKeyword?.pagetype === 'page') {
             const page = await loadPage({keyword: currentKeyword?.keyword});
             state.page.keyword = page?.keyword ?? null;
@@ -136,12 +139,11 @@ export async function buildPreloadedState({keyword, uuid, sku}: BuildPreloadedSt
             const category = await loadCategory({keyword: currentKeyword?.keyword});
             state.category.category = category;
             state.category.keyword = category?.keyword ?? null;
-            state.category.content = category;
         }
         if (currentKeyword?.pagetype === 'product') {
             const product = await loadProduct({keyword: currentKeyword?.keyword, complete: true});
-            const variant = hasVariants(product) ? defaultVariant(product as SellAsVariantsProduct, sku) : null;
-            state.products.product = product;
+            const variant = hasVariants(product ?? null) ? defaultVariant(product as SellAsVariantsProduct, sku) : null;
+            state.products.product = product ?? null;
             state.products.keyword = product?.keyword ?? null;
             state.products.selectedProduct = variant?.product ?? product ?? null;
             state.products.variantId = variant?.id ?? null;
@@ -202,7 +204,7 @@ export const getPreloadedStateV2js = async (req: Request, res: Response<unknown,
         const state = await buildPreloadedState(params);
         const js = 'window.__PRELOADED_STATE__ = ' + JSON.stringify(state, undefined, 2);
         res.set('Content-Type', 'application/javascript').send(js);
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getPreloadedStateV2js()", err.message);
         }
