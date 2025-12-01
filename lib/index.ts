@@ -1,5 +1,4 @@
 import {NextFunction, Request, Response, Router} from 'express';
-import {ValidatedUserProfile} from 'chums-types'
 import Debug from 'debug';
 import {default as productRouter} from './product/index.js';
 import {getKeyword, getKeywords} from './keywords/index.js';
@@ -21,24 +20,10 @@ import {getProductImageValidation, renderProductImageValidationTable} from "./va
 import {getPreloadedStateV2, getPreloadedStateV2js} from "./preloaded-state/v2.js";
 import {cookieConsentHelper, getCookieConsent, postCookieConsent} from "cookie-consent";
 import {getCookieConsentInfo} from "./cookie-consent/index.js";
+import {getPreloadedStateV2a, renderPreloadedStateV2a} from "./preloaded-state/v2-1.js";
 
 const debug = Debug('chums:lib:index');
 const router = Router();
-
-// declare global {
-//     // eslint-disable-next-line @typescript-eslint/no-namespace
-//     namespace Express {
-//         interface Locals {
-//             valid: boolean;
-//             status?: string;
-//             profile?: ValidatedUserProfile;
-//         }
-//     }
-// }
-
-const isLocalHost = (ip: string | undefined) => {
-    return ip === '::ffff:127.0.0.1' || ip === '127.0.0.1';
-}
 
 const debugLogger = (req: Request, res: Response, next: NextFunction) => {
     debug(req.ip, req.method, req.originalUrl, req.get('referrer') || req.get('host'));
@@ -58,32 +43,44 @@ router.post('/error-reporting', postError);
 router.get('/error-reporting.json', validateUser, validateAdmin, getErrors);
 
 // router.use('/features', features.router);
-router.get('/features/slides/:id(\\d+)', getSlides);
-router.get('/features/slides/active', getActiveSlides);
-router.get('/features/banners/active', getActiveBanners);
-router.get('/features/banners/:id(\\d+)', validateUser, validateAdmin, getBanners);
-router.get('/features/banners/all', validateUser, validateAdmin, getBanners);
-router.post('/features/banners', validateUser, validateAdmin, postBanner);
-router.put('/features/banners/:id(\\d+)', validateUser, validateAdmin, postBanner);
-router.delete('/features/banners/:id(\\d+)', validateUser, validateAdmin, delBanner);
+router.get('/features/slides/:id.json', getSlides);
+router.get('/features/slides/:id(\\d+)', deprecationNotice, getSlides);
+router.get('/features/slides/active.json', getActiveSlides);
+router.get('/features/slides/active', deprecationNotice, getActiveSlides);
+
+router.get('/features/banners/active.json', getActiveBanners);
+router.get('/features/banners/active', deprecationNotice, getActiveBanners);
+router.get('/features/banners/:id.json', validateUser, validateAdmin, getBanners);
+router.get('/features/banners/:id(\\d+)', deprecationNotice, validateUser, validateAdmin, getBanners);
+router.get('/features/banners/all.json', validateUser, validateAdmin, getBanners);
+router.get('/features/banners/all', deprecationNotice, validateUser, validateAdmin, getBanners);
+router.post('/features/banners.json', validateUser, validateAdmin, postBanner);
+router.post('/features/banners', deprecationNotice, validateUser, validateAdmin, postBanner);
+router.put('/features/banners/:id.json', validateUser, validateAdmin, postBanner);
+router.put('/features/banners/:id(\\d+)', deprecationNotice, validateUser, validateAdmin, postBanner);
+router.delete('/features/banners/:id.json', validateUser, validateAdmin, delBanner);
+router.delete('/features/banners/:id(\\d+)', deprecationNotice, validateUser, validateAdmin, delBanner);
+
 router.get('/keywords.json', getKeywords);
 router.get('/keywords/:keyword.json', getKeyword);
-router.get('/keywords/:keyword?', getKeywords);
+router.get('/keywords/:keyword?', deprecationNotice, getKeywords);
 router.use('/menus', menuRouter);
 router.get('/messages.json', getCurrentMessages);
 router.get('/messages/current', deprecationNotice, getCurrentMessages);
 router.get('/messages/list.json', validateUser, validateAdmin, getMessages);
 router.get('/messages/:id.json', validateUser, validateAdmin, getMessage);
 router.post('/messages.json', validateUser, validateAdmin, postMessage);
-router.put('/messages/:id(\\d+).json', validateUser, validateAdmin, postMessage);
-router.delete('/messages/:id(\\d+).json', validateUser, validateAdmin, delMessage);
+router.put('/messages/:id(\\d+).json', deprecationNotice, validateUser, validateAdmin, postMessage);
+router.delete('/messages/:id(\\d+).json', deprecationNotice, validateUser, validateAdmin, delMessage);
 
 router.get('/preload/v2/state.json', getPreloadedStateV2)
+router.get('/preload/v2a/state.json', getPreloadedStateV2a)
 router.get('/preload/v2/state.js', getPreloadedStateV2js)
-router.get('/preload/state/formatted', formattedState);
+router.get('/preload/v2a/state.js', renderPreloadedStateV2a)
+router.get('/preload/state/formatted', deprecationNotice, formattedState);
 router.get('/preload/state.json', formattedState);
 router.get('/preload/state.js', preloadJS);
-router.get('/preload/state', state);
+router.get('/preload/state', deprecationNotice, state);
 router.use('/products', productRouter);
 router.get('/search.json', getSearch3b);
 router.get('/search/v3/:term', getSearch3);
@@ -95,7 +92,8 @@ router.get('/pages/id/:id.json', validateUser, validateAdmin, getPage);
 router.get('/pages/:keyword.json', getPage);
 // router.get('/pages/:id(\\d+)?', getPages);
 // router.get('/pages/:keyword?', getPages);
-router.post('/pages/', validateUser, validateAdmin, postPage);
+router.post('/pages.json', validateUser, validateAdmin, postPage);
+router.post('/pages/', deprecationNotice, validateUser, validateAdmin, postPage);
 router.post('/pages.json', validateUser, validateAdmin, postPage);
 router.put('/pages/:id.json', validateUser, validateAdmin, postPage);
 router.delete('/pages/:id.json', validateUser, validateAdmin, delPage);
