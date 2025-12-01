@@ -23,7 +23,7 @@ import {
     SellAsMixProduct,
     SellAsSelfProduct,
     SellAsVariantsProduct
-} from "b2b-types";
+} from "chums-types/b2b";
 import {Decimal} from "decimal.js";
 
 
@@ -171,10 +171,10 @@ export const defaultVariant = (product: SellAsVariantsProduct, sku?: string): Pr
             return variant;
         }
         [variant] = variants.filter(v => {
-            if (!isSellAsColors(v.product)) {
+            if (!!v.product && !isSellAsColors(v.product)) {
                 return false;
             }
-            const items:ProductColorItem[] = v.product.items;
+            const items:ProductColorItem[] = v.product!.items;
             return items.filter(item => item.itemCode === sku).length > 0
         })
         if (variant) {
@@ -187,7 +187,7 @@ export const defaultVariant = (product: SellAsVariantsProduct, sku?: string): Pr
 
 
 
-export const getPrice = (product: Product): string[] => {
+export const getPrice = (product: Product|null): string[] => {
     if (isSellAsColors(product)) {
         const items: ProductColorItem[] = (product as SellAsColorsProduct).items;
         const prices: string[] = [];
@@ -195,7 +195,7 @@ export const getPrice = (product: Product): string[] => {
             .filter(item => !(!item.status || item.inactiveItem || item.productType === 'D'))
             .filter(item => !!item.msrp)
             .forEach(item => {
-                const price = new Decimal(item.msrp).toFixed(2);
+                const price = new Decimal(item.msrp!).toFixed(2);
                 if (!prices.includes(price)) {
                     prices.push(price);
                 }

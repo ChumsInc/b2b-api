@@ -1,6 +1,6 @@
 import Debug from 'debug';
 import {mysql2Pool} from 'chums-local-modules';
-import {ProductSeason} from "b2b-types";
+import {ProductSeason} from "chums-types/b2b";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 import {Request, Response} from "express";
 
@@ -105,6 +105,26 @@ export async function getSeasons(req: Request, res: Response) {
             return res.json({error: err.message, name: err.name});
         }
         res.json({error: 'unknown error in getSeasons'});
+    }
+}
+
+export async function getSeason(req: Request, res: Response) {
+    try {
+        const code = req.params.code;
+        const seasons = await loadSeasons({code});
+        if (seasons.length === 0) {
+            res.json({error: 'Season not found'});
+            return;
+        }
+        const season = seasons[0];
+        res.json({season});
+    } catch(err:unknown) {
+        if (err instanceof Error) {
+            debug("getSeason()", err.message);
+            res.json({error: err.message, name: err.name});
+            return;
+        }
+        res.json({error: 'unknown error in getSeason'});
     }
 }
 

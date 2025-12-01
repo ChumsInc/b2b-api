@@ -1,10 +1,11 @@
 import Debug from 'debug';
 import {mysql2Pool} from 'chums-local-modules';
-import {ProductCategoryChild} from "b2b-types";
+import {ProductCategoryChild} from "chums-types/b2b";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 import {loadProduct} from './product.js';
 import {loadCategories} from './category.js';
-import {CategoryChildCategory, CategoryChildProduct} from "b2b-types";
+import {CategoryChildCategory, CategoryChildProduct} from "chums-types/b2b";
+import {Request, Response} from "express";
 
 const debug = Debug('chums:lib:product:v2:category-items');
 
@@ -330,5 +331,21 @@ export async function deleteCategoryItem({id, parentId}: DeleteCategoryItemProps
         }
         debug("deleteItem()", err);
         return Promise.reject(new Error('Error in deleteItem()'));
+    }
+}
+
+
+export const getCategoryUsage = async (req:Request, res:Response) => {
+    try {
+        const products = await findProductUsage(req.params.keyword);
+        const categories = await findCategoryUsage(req.params.keyword);
+        const menus = await findMenuUsage(req.params.keyword);
+        res.json({products, categories, menus});
+    } catch (err) {
+        if (err instanceof Error) {
+            debug("getUsage()", err.message);
+            return res.json({error: err.message, name: err.name});
+        }
+        res.json({error: 'unknown error in getUsage'});
     }
 }
