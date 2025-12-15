@@ -8,6 +8,7 @@ import {getUserId, isUpdateCartItemBody, isUpdateCartItemsBody} from "./utils.js
 import {syncFromC2} from "./sync-cart.js";
 import {B2BCart} from "chums-types/b2b";
 import {duplicateSalesOrder} from "./duplicate-sales-order.js";
+import {customerKeyTest} from "./cart-utils.js";
 
 const debug = Debug('chums:lib:carts:cart-methods');
 
@@ -106,13 +107,13 @@ export async function deleteCartPrinted(req: Request, res: Response): Promise<vo
 
 export async function getCartsList(req: Request, res: Response) {
     try {
-        let customerKey = req.params.customerKey;
+        const customerKey = req.params.customerKey;
         const userId = getUserId(res);
         if (!userId) {
             res.status(401).json({error: 'Login is required'});
             return;
         }
-        if (customerKey) {
+        if (customerKey && customerKeyTest.test(customerKey)) {
             await syncFromC2({customerKey});
         }
         const carts = await loadCartHeader({customerKey, userId}, 'C');
@@ -129,13 +130,13 @@ export async function getCartsList(req: Request, res: Response) {
 
 export async function getOrdersList(req: Request, res: Response) {
     try {
-        let customerKey = req.params.customerKey;
+        const customerKey = req.params.customerKey;
         const userId = getUserId(res);
         if (!userId) {
             res.status(401).json({error: 'Login is required'});
             return;
         }
-        if (customerKey) {
+        if (customerKey && customerKeyTest.test(customerKey)) {
             await syncFromC2({customerKey});
         }
         const orders = await loadCartHeader({customerKey, userId}, 'O');
@@ -217,6 +218,10 @@ export const postAddToCart = async (req: Request, res: Response): Promise<void> 
     try {
         const userId = res.locals.profile!.user.id;
         const {customerKey, cartId} = req.params;
+        if (!customerKey || !customerKeyTest.test(customerKey)) {
+            res.status(400).json({error: 'Invalid customer key'});
+            return;
+        }
         const body: AddToCartBody = {
             productId: req.body.productId ?? null,
             productItemId: req.body.productItemId ?? null,

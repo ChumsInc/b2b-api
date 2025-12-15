@@ -7,10 +7,11 @@ import {AddToCartProps} from "./types/cart-action-props.js";
 
 const debug = Debug('chums:lib:carts:cart-utils');
 
-const customerKeyTest = /^([0-9]{2})-([A-Z0-9]+)(?:[-:]*(\S+))?$/;
+export const customerKeyTest = /^([0-9]{2})-([A-Z0-9]+)(?:[-:]*(\S+))?$/;
+export const maxCustomerKeyLength = 29; // ARDivisionNo (2 chars), CustomerNo (20 chars), ShipToCode (4 chars), up to 3 separators
 
 export async function parseCustomerKey(customerKey:string):Promise<B2BCustomer> {
-    if (!customerKeyTest.test(customerKey)) {
+    if (customerKey.length > maxCustomerKeyLength || !customerKeyTest.test(customerKey)) {
         return Promise.reject(new Error('Invalid customer key'));
     }
     const [, arDivisionNo, customerNo, shipToCode] = customerKeyTest.exec(customerKey) ?? [];

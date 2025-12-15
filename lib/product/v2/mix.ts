@@ -43,7 +43,7 @@ export async function loadMix(id: number | string): Promise<ProductMixVariant | 
                                            ON p.products_id = mix.productsID
                                 LEFT JOIN b2b_oscommerce.manufacturers m
                                           ON p.manufacturers_id = m.manufacturers_id
-                                LEFT JOIN c2.ci_item ci
+                                LEFT JOIN c2.CI_Item ci
                                           ON ci.Company = m.company AND ci.ItemCode = mix.itemCode
                                 LEFT JOIN c2.v_web_available w
                                           ON w.Company = ci.company AND w.ItemCode = ci.ItemCode AND
@@ -143,7 +143,7 @@ export async function loadSageBillComponents({id}: { id: number | string }): Pro
                                            ON m.manufacturers_id = p.manufacturers_id
                                 INNER JOIN b2b_oscommerce.products_mixes mix
                                            ON mix.productsID = p.products_id
-                                LEFT JOIN c2.ci_item i
+                                LEFT JOIN c2.CI_Item i
                                           ON i.Company = m.company AND i.ItemCode = mix.itemCode
                                 LEFT JOIN c2.BM_BillDetail d
                                           ON d.Company = m.company AND d.BillNo = mix.itemCode

@@ -23,6 +23,7 @@
     "decimal.js": "^10.4.3",
     "dotenv": "^17.2.2",
     "express": "^4.21.0",
+    "express-rate-limit": "^8.2.1",
     "helmet": "^8.0.0",
     "mysql2": "^3.3.2",
     "numeral": "^2.0.6",

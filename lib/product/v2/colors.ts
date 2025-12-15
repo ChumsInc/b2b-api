@@ -112,7 +112,7 @@ async function loadColorUsage(id:number|string):Promise<ColorProductUsage[]> {
                                        ON d.products_id = p.products_id AND d.language_id = 1
                             INNER JOIN b2b_oscommerce.products_items i
                                        ON i.productsID = p.products_id
-                            LEFT JOIN c2.ci_item ci
+                            LEFT JOIN c2.CI_Item ci
                                       ON ci.company = m.company AND ci.ItemCode = i.itemCode
                        WHERE i.colorsID = :id
                        ORDER BY itemCode `;
@@ -155,7 +155,7 @@ async function loadMixUsage(id:number|string):Promise<ColorProductUsage[]> {
                             INNER JOIN b2b_oscommerce.products_mixes_detail md
                                        ON md.mixID = m.mixID
                             LEFT JOIN b2b_oscommerce.products_items i on i.itemCode = md.itemCode
-                            LEFT JOIN c2.ci_item ci
+                            LEFT JOIN c2.CI_Item ci
                                       ON ci.Company = mfg.Company AND ci.ItemCode = m.itemCode
                        WHERE md.colorsID = :id
                        ORDER BY m.itemCode`;
