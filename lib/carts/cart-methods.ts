@@ -8,7 +8,7 @@ import {getUserId, isUpdateCartItemBody, isUpdateCartItemsBody} from "./utils.js
 import {syncFromC2} from "./sync-cart.js";
 import {B2BCart} from "chums-types/b2b";
 import {duplicateSalesOrder} from "./duplicate-sales-order.js";
-import {customerKeyTest} from "./cart-utils.js";
+import {customerKeyTest, maxCustomerKeyLength} from "./cart-utils.js";
 
 const debug = Debug('chums:lib:carts:cart-methods');
 
@@ -113,7 +113,7 @@ export async function getCartsList(req: Request, res: Response) {
             res.status(401).json({error: 'Login is required'});
             return;
         }
-        if (customerKey && customerKeyTest.test(customerKey)) {
+        if (customerKey && customerKey.length <= maxCustomerKeyLength && customerKeyTest.test(customerKey)) {
             await syncFromC2({customerKey});
         }
         const carts = await loadCartHeader({customerKey, userId}, 'C');
@@ -136,7 +136,7 @@ export async function getOrdersList(req: Request, res: Response) {
             res.status(401).json({error: 'Login is required'});
             return;
         }
-        if (customerKey && customerKeyTest.test(customerKey)) {
+        if (customerKey && customerKey.length <= maxCustomerKeyLength && customerKeyTest.test(customerKey)) {
             await syncFromC2({customerKey});
         }
         const orders = await loadCartHeader({customerKey, userId}, 'O');
@@ -218,7 +218,7 @@ export const postAddToCart = async (req: Request, res: Response): Promise<void> 
     try {
         const userId = res.locals.profile!.user.id;
         const {customerKey, cartId} = req.params;
-        if (!customerKey || !customerKeyTest.test(customerKey)) {
+        if (!customerKey || customerKey.length > maxCustomerKeyLength || !customerKeyTest.test(customerKey)) {
             res.status(400).json({error: 'Invalid customer key'});
             return;
         }
