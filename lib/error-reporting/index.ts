@@ -55,8 +55,8 @@ async function loadErrors({ip, user_id, limit = 0, offset = 0}:{
                             referrer,
                             timestamp
                      FROM b2b.user_errors
-                     WHERE (IFNULL(:ip, '') = :ip OR ip_address = :ip)
-                       AND (IFNULL(:user_id, 0) = 0 OR user_id = :user_id)
+                     WHERE (IFNULL(:ip, '') = '' OR ip_address = :ip)
+                       AND (IFNULL(:user_id, '') = '' OR user_id = :user_id)
                      ORDER BY id DESC
                      LIMIT :limit OFFSET :offset`;
         const args = {
@@ -69,8 +69,11 @@ async function loadErrors({ip, user_id, limit = 0, offset = 0}:{
         return rows.map(row => {
             let debug:unknown = null
             try {
-                debug = !!row.debug ? JSON.parse(row.debug) : null;
-            } catch(err:unknown) {}
+                debug = row.debug ? JSON.parse(row.debug) : null;
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch(err:unknown) {
+                // do nothing
+            }
             return {
                 ...row,
                 debug
@@ -91,12 +94,18 @@ export async function postError(req:Request, res:Response) {
         const ip = req.ip;
         const user_agent = req.get('User-Agent');
         const referrer = req.get('referrer');
+        if (!req.body.message || !req.body.url || req.body.url.lengh > 500) {
+            return res.status(401).json({error: 'Invalid error logging request'});
+        }
         try {
             const user = await loadValidation(req);
             if (user?.profile?.user) {
                 req.body.user_id = user.profile.user.id;
             }
-        } catch(err) {}
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        } catch(err) {
+            // do nothing
+        }
 
         await logErrors({...req.body, ip, user_agent, referrer});
         res.json({logged: true});
