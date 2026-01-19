@@ -289,6 +289,7 @@ export async function loadCartDetail({cartId, userId}: LoadCartDetailProps): Pro
                                                                               JSON_VALUE(pi.additionalData, '$.season.product_season_id')
                      WHERE h.id = :cartId
                        AND IFNULL(d.lineStatus, '') <> 'X'
+                        AND if(d.itemType = 1, d.quantityOrdered <> 0, 1)
                      ORDER BY d.id
         `
         const [rows] = await mysql2Pool.query<B2BCartDetailRow[]>(sql, {cartId, userId});
