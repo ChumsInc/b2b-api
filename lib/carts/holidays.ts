@@ -1,11 +1,29 @@
+import Debug from "debug";
+import {RowDataPacket} from "mysql2";
+import {mysql2Pool} from "chums-local-modules";
+import dayjs from "dayjs";
+
+const debug = Debug('chums:lib:carts:holidays');
+
 export const holidayFormat = 'YYYY-MM-DD'
-export const holidays = [
-    '2025-09-01',
-    '2025-10-13',
-    '2025-11-27',
-    '2025-11-28',
-    '2025-12-24',
-    '2025-12-25',
-    '2025-12-31',
-    '2026-01-01',
-]
+
+interface HolidayRow extends RowDataPacket {
+    holiday: string;
+}
+
+export async function loadHolidays(): Promise<string[]> {
+    try {
+        const sql = `SELECT DATE(date) as holiday
+                     FROM timeclock.Holidays
+                     WHERE paid = 1`;
+        const [rows] = await mysql2Pool.query<HolidayRow[]>(sql);
+        return rows.map(row => dayjs(row.holiday).format(holidayFormat));
+    } catch (err: unknown) {
+        if (err instanceof Error) {
+            debug("loadHolidays()", err.message);
+            return Promise.reject(err);
+        }
+        debug("loadHolidays()", err);
+        return Promise.reject(new Error('Error in loadHolidays()'));
+    }
+}
