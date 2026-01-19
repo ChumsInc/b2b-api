@@ -26,7 +26,6 @@ async function nextShipDate(daysToShip?: number):Promise<string> {
     const holidays = await loadHolidays();
     let remaining = (daysToShip ?? defaultDaysToShip);
     let shipDate = dayjs().startOf('day').set('hour', 8);
-    debug('nextShipDate()', shipDate.toISOString(), remaining, holidays.join(', '));
     if (isWorkDay(shipDate, holidays) && (
         (dayjs().get('day') < 5 && dayjs().get('hour') > 16)
         || (dayjs().get('day') === 5 && dayjs().get('hour') > 11)
@@ -39,7 +38,6 @@ async function nextShipDate(daysToShip?: number):Promise<string> {
             remaining -= 1;
         }
     }
-    debug('nextShipDate()', shipDate.toISOString(), remaining);
     return shipDate.toISOString();
 }
 
