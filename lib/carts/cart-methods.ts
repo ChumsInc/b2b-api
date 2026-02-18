@@ -118,13 +118,13 @@ export async function getCartsList(req: Request, res: Response) {
         }
         const carts = await loadCartHeader({customerKey, userId}, 'C');
         res.json({carts})
-    } catch (err: unknown) {
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getCartsList()", err.message);
-            return Promise.reject(err);
+            res.status(500).json({error: err.message, name: err.name});
+            return;
         }
-        debug("getCartsList()", err);
-        return Promise.reject(new Error('Error in getCartsList()'));
+        res.status(500).json({error: 'unknown error in getCartsList'});
     }
 }
 
@@ -141,13 +141,13 @@ export async function getOrdersList(req: Request, res: Response) {
         }
         const orders = await loadCartHeader({customerKey, userId}, 'O');
         res.json({orders})
-    } catch (err: unknown) {
+    } catch(err:unknown) {
         if (err instanceof Error) {
-            debug("getCartsList()", err.message);
-            return Promise.reject(err);
+            debug("getOrdersList()", err.message);
+            res.status(500).json({error: err.message, name: err.name});
+            return;
         }
-        debug("getCartsList()", err);
-        return Promise.reject(new Error('Error in getCartsList()'));
+        res.status(500).json({error: 'unknown error in getOrdersList'});
     }
 }
 
@@ -162,13 +162,13 @@ export async function getCustomerCarts(req: Request, res: Response) {
         await syncFromC2({customerKey});
         const carts = await loadCustomerCarts({userId, customerKey});
         res.json({carts})
-    } catch (err: unknown) {
+    } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getCustomerCarts()", err.message);
-            return Promise.reject(err);
+            res.status(500).json({error: err.message, name: err.name});
+            return;
         }
-        debug("getCustomerCarts()", err);
-        return Promise.reject(new Error('Error in getCustomerCarts()'));
+        res.status(500).json({error: 'unknown error in getCustomerCarts'});
     }
 }
 

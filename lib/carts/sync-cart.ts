@@ -7,6 +7,7 @@ import {Request, Response} from 'express'
 import {ResultSetHeader} from "mysql2";
 import dayjs from "dayjs";
 import {B2BCartSyncHeader, B2BCartSyncLine, SageSalesOrderResponse} from "./types/cart-utils.js";
+import {SalesOrderStatus} from "b2b-types";
 
 const debug = Debug('chums:lib:carts:sync-cart');
 
@@ -32,9 +33,10 @@ export async function syncFromC2({
                 INNER JOIN c2.SO_SalesOrderHistoryHeader so
                 ON so.SalesOrderNo = h.salesOrderNo AND so.Company = 'chums'
             SET h.orderType   = so.OrderType,
-                h.orderStatus = so.OrderStatus
+                h.orderStatus = so.OrderStatus,
+                h.shipExpireDate = so.ShipExpireDate
             WHERE so.OrderStatus <> 'Q'
-              AND (h.orderStatus <> so.OrderStatus OR h.orderType <> so.OrderType)
+              AND (h.orderStatus <> so.OrderStatus OR h.orderType <> so.OrderType OR h.shipExpireDate <> so.ShipExpireDate)
               AND (
                 IFNULL(:cartId, '') = ''
                     OR h.SalesOrderNo = (SELECT salesOrderNo FROM b2b.cart_header WHERE id = :cartId)
@@ -228,6 +230,15 @@ export async function syncFromC2({
             WHERE (IFNULL(:cartId, 0) = 0 OR h.id = :cartId)
               AND (IFNULL(:customerKey, '') = '' OR h.customerKey LIKE :customerKey)
               AND lineStatus <> 'U'
+              AND (
+                d.itemCode <> sod.ItemCode
+                    OR d.priceLevel <> sod.PriceLevel
+                    OR d.commentText <> sod.CommentText
+                    OR d.unitOfMeasure <> sod.UnitOfMeasure
+                    OR d.quantityOrdered <> sod.QuantityOrdered
+                    OR d.unitPrice <> sod.UnitPrice
+                    OR d.discount <> sod.Discount
+                )
         `
         const sqlDetailClean = `UPDATE b2b.cart_detail
                                 SET lineStatus = 'X',
@@ -323,7 +334,7 @@ export async function syncFromSage(salesOrderNo: string): Promise<SyncFromSageRe
         const salesOrder: B2BCartSyncHeader = {
             salesOrderNo: so.SalesOrderNo,
             orderType: so.OrderType,
-            orderStatus: so.OrderStatus,
+            orderStatus: so.OrderStatus as SalesOrderStatus,
             arDivisionNo: so.ARDivisionNo,
             customerNo: so.CustomerNo,
             shipToCode: so.ShipToCode,

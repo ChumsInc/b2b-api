@@ -42,7 +42,7 @@ export async function loadCartHeader({
                             h.salespersonKey,
                             sp.SalespersonName                             AS salespersonName,
                             h.customerPONo,
-                            h.shipExpireDate,
+                            ifnull(soh.ShipExpireDate, h.shipExpireDate) as shipExpireDate,
                             h.shipVia,
                             h.promoCode,
                             h.comment,
