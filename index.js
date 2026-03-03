@@ -18,7 +18,6 @@ const limiter = rateLimit({
     max: 50, // max 50 requests per minute,
     message: {error: 'Too many requests, please try again later.'}
 })
-app.use(limiter);
 app.use(helmet(helmetOptions));
 app.set('trust proxy', 'loopback');
 app.set('json spaces', 2);
@@ -30,6 +29,8 @@ app.use((req, res, next) => {
     res.locals.response = {};
     next();
 })
+
+app.use(limiter);
 app.use(libRouter);
 
 app.use((req, res) => {
