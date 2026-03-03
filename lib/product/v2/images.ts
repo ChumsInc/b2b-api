@@ -73,8 +73,9 @@ async function addImage({productId, image}:Partial<ProductAlternateImage>):Promi
         const query = `INSERT INTO b2b_oscommerce.products_images (productID, image)
                        VALUES (:productId, :image)`;
         const data = {productId, image};
-        const [{insertId}] = await mysql2Pool.query<ResultSetHeader>(query, data);
-        return insertId;
+        debug('addImage()', data);
+        const [res] = await mysql2Pool.query<ResultSetHeader>(query, data);
+        return res.insertId;
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("addImage()", err.message);
@@ -107,20 +108,21 @@ async function deleteImage({id, productId}:DeleteImageProps):Promise<ProductAlte
     }
 }
 
-export async function getImages(req:Request, res:Response) {
+export async function getImages(req:Request, res:Response):Promise<void> {
     try {
         const images = await loadImages(req.params);
         res.json({images});
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getImages()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return
         }
         res.json({error: 'unknown error in getImages'});
     }
 }
 
-export async function getImage(req:Request, res:Response) {
+export async function getImage(req:Request, res:Response):Promise<void> {
     try {
         const params = {...req.params, ...req.query};
         const [image] = await loadImages(params);
@@ -128,26 +130,28 @@ export async function getImage(req:Request, res:Response) {
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getImage()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return
         }
         res.json({error: 'unknown error in getImage'});
     }
 }
 
-export async function postImage(req:Request, res:Response) {
+export async function postImage(req:Request, res:Response):Promise<void> {
     try {
         const images = await saveImage(req.body);
         res.json({images});
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("postImage()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return
         }
         res.json({error: 'unknown error in postImage'});
     }
 }
 
-export async function delImage(req:Request, res:Response) {
+export async function delImage(req:Request, res:Response):Promise<void> {
     try {
         const {id, productId} = req.params;
         const images = await deleteImage({id, productId});
@@ -155,13 +159,14 @@ export async function delImage(req:Request, res:Response) {
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("delImage()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return
         }
         res.json({error: 'unknown error in delImage'});
     }
 }
 
-export async function getImagesForProducts(req:Request, res:Response, next:NextFunction) {
+export async function getImagesForProducts(req:Request, res:Response, next:NextFunction):Promise<void> {
     try {
         const products:Product[] = res.locals.response.products || [];
         const productIdList = products.map(p => p.id);
@@ -174,7 +179,8 @@ export async function getImagesForProducts(req:Request, res:Response, next:NextF
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("getImagesForProducts()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return
         }
         res.json({error: 'unknown error in getImagesForProducts'});
     }

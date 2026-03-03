@@ -1,6 +1,6 @@
 import Debug from 'debug';
 import {mysql2Pool} from 'chums-local-modules';
-import {ProductCategoryChild} from "chums-types/b2b";
+import {GenericProductCategoryChild, ProductCategoryChild} from "chums-types/b2b";
 import {ResultSetHeader, RowDataPacket} from "mysql2";
 import {loadProduct} from './product.js';
 import {loadCategories} from './category.js';
@@ -284,10 +284,7 @@ export async function saveCategoryItem({...body}: ProductCategoryChild): Promise
 
 export interface UpdateCategoryItemSortProps {
     parentId: string | number,
-    items: {
-        id: number,
-        priority: number
-    }[]
+    items: Pick<GenericProductCategoryChild, 'id'|'priority'>[]
 }
 
 export async function updateCategoryItemSort({parentId, items = []}: UpdateCategoryItemSortProps) {
@@ -297,7 +294,10 @@ export async function updateCategoryItemSort({parentId, items = []}: UpdateCateg
                        WHERE item_id = :id`;
         const connection = await mysql2Pool.getConnection();
         await Promise.all(items.map(item => {
-            return connection.query(query, {...item});
+            return connection.query(query, {
+                priority: item.priority,
+                id: item.id,
+            });
         }));
         connection.release();
         return await loadCategoryItems({parentId});

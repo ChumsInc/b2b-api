@@ -45,6 +45,7 @@ router.delete('/category/:id.json', validateUser, validateAdmin, delCategory);
 router.delete('/category/item/:id.json', validateUser, validateAdmin, delCategoryItem);
 
 router.get('/image/:id.json', getImage);
+router.post('/images.json', validateUser, validateAdmin, postImage);
 router.post('/image.json', validateUser, validateAdmin, postImage);
 router.get('/images/:productId.json', getImages);
 router.put('/images/:id.json', validateUser, validateAdmin, postImage);

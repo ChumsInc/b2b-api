@@ -207,7 +207,7 @@ async function deleteCategory({id}:{id: number|string}) {
     }
 }
 
-export async function getCategory(req: Request, res: Response) {
+export async function getCategory(req: Request, res: Response):Promise<void> {
     try {
         const category = await loadCategory(req.params);
         if (!category) {
@@ -218,52 +218,56 @@ export async function getCategory(req: Request, res: Response) {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getCategory()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return
         }
         res.json({error: 'unknown error in getCategory'});
     }
 }
 
-export async function getCategories(req: Request, res: Response) {
+export async function getCategories(req: Request, res: Response):Promise<void> {
     try {
         const categories = await loadCategories(req.params);
         res.json({categories});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getCategories()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return;
         }
         res.json({error: 'unknown error in getCategories'});
     }
 }
 
-export async function getCategoryItems(req: Request, res: Response) {
+export async function getCategoryItems(req: Request, res: Response):Promise<void> {
     try {
         const items = await loadCategoryItems(req.params);
         res.json({categoryItems: items});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getCategoryItems()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return
         }
         res.json({error: 'unknown error in getCategoryItems'});
     }
 }
 
-export async function postCategory(req: Request, res: Response) {
+export async function postCategory(req: Request, res: Response):Promise<void> {
     try {
         const category = updateCategory(req.body);
         res.json({categories: [category]});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postCategory()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return
         }
         res.json({error: 'unknown error in postCategory'});
     }
 }
 
-export async function delCategory(req: Request, res: Response) {
+export async function delCategory(req: Request, res: Response):Promise<void> {
     try {
         const {id} = req.params;
         const categories = await deleteCategory({id});
@@ -271,40 +275,54 @@ export async function delCategory(req: Request, res: Response) {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("delCategory()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return;
         }
         res.json({error: 'unknown error in delCategory'});
     }
 }
 
-export async function postCategoryItem(req: Request, res: Response) {
+export async function postCategoryItem(req: Request, res: Response):Promise<void> {
     try {
         const items = await saveCategoryItem(req.body);
         res.json({items});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postCategoryItem()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return
         }
         res.json({error: 'unknown error in postCategoryItem'});
     }
 }
 
-export async function postItemSort(req:Request, res:Response) {
+export async function postItemSort(req:Request, res:Response):Promise<void> {
     try {
-        const params = {...req.params, items: req.body} as UpdateCategoryItemSortProps;
+        const parentId = req.params.parentId;
+        // debug('postItemSort()', parentId, req.body);
+        const _items = req.body.items ?? [];
+        if (!_items.length || !parentId) {
+            res.json({error: 'No items provided.'});
+            return;
+        }
+
+        const params:UpdateCategoryItemSortProps = {
+            parentId: parentId,
+            items: _items
+        };
         const items = await updateCategoryItemSort(params);
         res.json({items});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postItemSort()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return
         }
         res.json({error: 'unknown error in postItemSort'});
     }
 }
 
-export async function delCategoryItem(req: Request, res: Response) {
+export async function delCategoryItem(req: Request, res: Response):Promise<void> {
     try {
         const {id, parentId} = req.params;
         const items = await deleteCategoryItem({id, parentId});
@@ -312,7 +330,8 @@ export async function delCategoryItem(req: Request, res: Response) {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("deleteCategoryItem()", err.message);
-            return res.json({error: err.message, name: err.name});
+            res.json({error: err.message, name: err.name});
+            return
         }
         res.json({error: 'unknown error in deleteCategoryItem'});
     }
