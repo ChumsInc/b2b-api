@@ -10,6 +10,7 @@ export interface PackageJSON {
 
 export const aboutAPI = async (req:Request, res:Response) => {
     try {
+        const ip = req.ip;
         let version = '0.0.0';
         try {
             const contents = await readFile('./package.json');
@@ -25,7 +26,7 @@ export const aboutAPI = async (req:Request, res:Response) => {
             }
         }
         const site = req.headers.host === 'intranet.chums.com' ? '/api/b2b' : '/api';
-        res.json({site, version});
+        res.json({site, version, ip});
     } catch(err) {
         if (err instanceof Error) {
             debug("aboutAPI()", err.message);
