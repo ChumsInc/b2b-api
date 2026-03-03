@@ -19,7 +19,7 @@ async function logErrors(arg:ErrorReportArg) {
             url: arg.url ?? null,
             message: arg.message ?? null,
             componentStack: arg.componentStack ?? null,
-            debug: !!arg.debug ? JSON.stringify(arg.debug) : null,
+            debug: arg.debug ? JSON.stringify(arg.debug) : null,
             user_agent: arg.user_agent ?? null,
             referrer: arg.referrer ?? null,
         };
