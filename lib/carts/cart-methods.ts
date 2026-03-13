@@ -32,10 +32,10 @@ export async function getCart(req: Request, res: Response): Promise<void> {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getCart()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in getCart'});
+        res.status(500).json({error: 'unknown error in getCart'});
     }
 }
 
@@ -58,10 +58,10 @@ export async function getCartOrder(req: Request, res: Response): Promise<void> {
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getCart()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in getCart'});
+        res.status(500).json({error: 'unknown error in getCart'});
     }
 }
 
@@ -78,10 +78,10 @@ export async function postCartPrinted(req: Request, res: Response): Promise<void
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postCartPrinted()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in postCartPrinted'});
+        res.status(500).json({error: 'unknown error in postCartPrinted'});
     }
 }
 
@@ -98,10 +98,10 @@ export async function deleteCartPrinted(req: Request, res: Response): Promise<vo
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("postCartPrinted()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in postCartPrinted'});
+        res.status(500).json({error: 'unknown error in postCartPrinted'});
     }
 }
 
@@ -217,7 +217,8 @@ export const deleteCart = async (req: Request, res: Response): Promise<void> => 
 export const postAddToCart = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = res.locals.profile!.user.id;
-        const {customerKey, cartId} = req.params;
+        const customerKey = req.params.customerKey as string;
+        const cartId = req.params.cartId as string;
         if (!customerKey || customerKey.length > maxCustomerKeyLength || !customerKeyTest.test(customerKey)) {
             res.status(400).json({error: 'Invalid customer key'});
             return;
@@ -248,10 +249,10 @@ export const postAddToCart = async (req: Request, res: Response): Promise<void> 
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("addToCart()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in addToCart'});
+        res.status(500).json({error: 'unknown error in addToCart'});
     }
 }
 
@@ -271,10 +272,10 @@ export const putUpdateCartItem = async (req: Request, res: Response): Promise<vo
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("putUpdateCart()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in putUpdateCart'});
+        res.status(500).json({error: 'unknown error in putUpdateCart'});
     }
 }
 
@@ -307,10 +308,10 @@ export const putUpdateCartItems = async (req: Request, res: Response): Promise<v
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("putUpdateCart()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in putUpdateCart'});
+        res.status(500).json({error: 'unknown error in putUpdateCart'});
     }
 }
 
@@ -324,10 +325,10 @@ export const deleteCartItem = async (req: Request, res: Response): Promise<void>
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("deleteCartItem()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in deleteCartItem'});
+        res.status(500).json({error: 'unknown error in deleteCartItem'});
     }
 }
 
@@ -350,9 +351,9 @@ export const postDuplicateSalesOrder = async (req: Request, res: Response): Prom
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("duplicateSalesOrder()", err.message);
-            res.json({error: err.message, name: err.name});
+            res.status(500).json({error: err.message, name: err.name});
             return;
         }
-        res.json({error: 'unknown error in duplicateSalesOrder'});
+        res.status(500).json({error: 'unknown error in duplicateSalesOrder'});
     }
 }

@@ -16,6 +16,7 @@ export async function createNewCart({
                                         customerPONo,
                                     }: Omit<CartActionProps, 'cartId'>): Promise<B2BCart | null> {
     try {
+        debug('createNewCart()', {userId, customerKey, shipToCode, customerPONo});
         const {arDivisionNo, customerNo} = await parseCustomerKey(customerKey);
         const sql = `INSERT INTO b2b.cart_header (orderType, orderStatus, arDivisionNo, customerNo, shipToCode,
                                                   salespersonDivisionNo, salespersonNo, taxSchedule,
