@@ -21,6 +21,7 @@ const limiter = rateLimit({
 app.use(helmet(helmetOptions));
 app.set('trust proxy', 'loopback');
 app.set('json spaces', 2);
+app.set('view engine', 'ejs');
 app.use(cookieParser(process.env.COOKIE_SECRET ?? undefined));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({extended: true}));

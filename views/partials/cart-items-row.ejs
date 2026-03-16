@@ -1,0 +1,59 @@
+<%-
+/**
+ * Created by  on 12/12/2016.
+ *  @name header
+ *  @type {B2BCartHeader}
+ *
+ *
+ * @name detail
+ * @type {EmailDetailLine}
+ *
+ * @name itemCount
+ * @type {number}
+ */
+%>
+
+<% if (row.itemType === '4') { %>
+    <tr>
+        <td colspan="5" style="padding: 5px; vertical-align: top; text-align: left; line-height: 2; font-style: italic; font-size: 85%; white-space: pre-wrap;"><%- row.commentText %></td>
+        <td colspan="2"></td>
+    </tr>
+<% } else { %>
+    <tr>
+        <th scope="row" style="padding: 5px; vertical-align: top; text-align: left; border-bottom: 1px solid #dddddd88">
+            <div><%- row.itemCode %></div>
+            <div>
+                <% if (row.itemType === '1' && row.image) { %>
+                    <img src="<%- `https://b2b.chums.com/images/products/250/${row.image}` %>" alt="<%- row.itemCodeDesc %>"
+                         style="max-width: 80px; height: auto;">
+                <% } %>
+            </div>
+        </th>
+        <td style="padding: 5px; vertical-align: top; text-align: left; border-bottom: 1px solid #dddddd88"><%- row.itemCodeDesc %></td>
+        <td style="padding: 5px; vertical-align: top; text-align: left; border-bottom: 1px solid #dddddd88"><%- row.unitOfMeasure %></td>
+        <td style="padding: 5px; vertical-align: top; text-align: right; border-bottom: 1px solid #dddddd88;"><%- row.quantityOrdered %></td>
+        <td style="padding: 5px; vertical-align: top; text-align: right; border-bottom: 1px solid #dddddd88;">
+            <div>
+                <%- row.unitPrice %>
+            </div>
+            <% if (row.hasDiscount) { %>
+                <div class="discount">
+                    <%- row.lineDiscountPercent %>% Off
+                </div>
+            <% } %>
+        </td>
+        <td style="padding: 5px; vertical-align: top; text-align: right; border-bottom: 1px solid #dddddd88;"><%- row.suggestedRetailPrice %></td>
+        <td style="padding: 5px; vertical-align: top; text-align: right; border-bottom: 1px solid #dddddd88;"><%- row.itemPrice %></td>
+        <td style="padding: 5px; vertical-align: top; text-align: right; border-bottom: 1px solid #dddddd88;"><%- row.extensionAmt %></td>
+    </tr>
+    <% if (row.commentText) { %>
+        <tr>
+            <td colspan="1" style="padding: 5px; vertical-align: top; text-align: left; border-bottom: 1px solid #dddddd88"></td>
+            <td colspan="4" style="padding: 5px; vertical-align: top; text-align: left; line-height: 2; font-style: italic; font-size: 85%; white-space: pre-wrap; border-bottom: 1px solid #dddddd88;">
+                <%- row.commentText %>
+            </td>
+            <td colspan="2" style="padding: 5px; vertical-align: top; text-align: left; border-bottom: 1px solid #dddddd88"></td>
+        </tr>
+    <% } %>
+<% } %>
+

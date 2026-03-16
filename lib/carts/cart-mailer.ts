@@ -227,7 +227,7 @@ interface EmailCart {
 
 export async function renderCartEmailHTML(cart: EmailCart, res: Response): Promise<string> {
     return new Promise((resolve, reject) => {
-        res.render('cart-email.pug', cart, (err, html) => {
+        res.render('cart-email.ejs', cart, (err, html) => {
             if (err) {
                 return reject(err);
             }

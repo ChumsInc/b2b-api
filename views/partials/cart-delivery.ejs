@@ -1,0 +1,25 @@
+<%
+/**
+ * @name header
+ * @type {B2BCartHeader}
+ */
+%>
+<table cellspacing="0" cellpadding="0" border="0" width="100%">
+    <tr>
+        <th scope="row" style="padding: 5px; vertical-align: top; text-align: left">Ship To</th>
+        <td style="padding: 5px; vertical-align: top; text-align: left">
+            <%- header.shipToCode ? `[${header.shipToCode}] ${header.shipToName}` : header.shipToName %>
+        </td>
+    </tr>
+    <tr>
+        <th scope="row" style="padding: 5px; vertical-align: top; text-align: left">Address</th>
+        <td style="padding: 5px; vertical-align: top; text-align: left">
+            <%-
+                (header.ShipToAddress1 ? `${header.ShipToAddress1}<br/>` : '') +
+                (header.ShipToAddress2 ? `${header.ShipToAddress2}<br/>` : '') +
+                (header.ShipToAddress3 ? `${header.ShipToAddress3}<br/>` : '') +
+                `${header.ShipToCity}, ${header.ShipToState} ${header.ShipToZipCode}`
+            %>
+        </td>
+    </tr>
+</table>

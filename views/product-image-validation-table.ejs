@@ -1,0 +1,63 @@
+<%-
+/**
+ * @name items
+ * @type {ProductImageSet[]}
+ */
+%>
+<table class="table table-sm table-hover" cellpadding="0" cellspacing="0" width="100%">
+    <caption class="d-none">
+        <a href="https://intranet.chums.com/reports/websites/b2b/image-validation">
+            View on Chums Intranet
+        </a>
+    </caption>
+    <thead>
+    <tr>
+        <th>Product ID</th>
+        <th>Keyword</th>
+        <th>Item Code</th>
+        <th>Description</th>
+        <th>Sales U/M</th>
+        <th>Filenames</th>
+    </tr>
+    </thead>
+    <tbody>
+    <% items.forEach(item => { %>
+        <tr>
+            <td>
+                <%= item.productId %>
+            </td>
+            <td>
+                <a href="https://intranet.chums.com/apps/b2b-products/#/products/<%= item.keyword %>" rel="noreferrer" target="b2b-editor">
+                    <%= item.keyword %>
+                </a>
+            </td>
+            <td><%= item.itemCode %></td>
+            <td><%= item.description %></td>
+            <td><%= item.salesUnitOfMeasure %></td>
+            <td>
+                <% item.filenames.filter(fn => fn.filename !== null).forEach(fn => { %>
+                    <div>
+                        <%- fn.filename %>
+                        <% if (fn.preferred && fn.active) { %>
+                            <span class="badge bg-primary ms-3">
+                                <span class="bi-check" aria-label="preferred image"></span>
+                            </span>
+                            <span class="d-none" style="margin-left: 1rem">
+                                preferred
+                            </span>
+                        <% } %>
+                        <% if (!fn.active) { %>
+                            <span class="badge bg-warning text-dark ms-3">
+                                <span class="bi-lightbulb-off" aria-label="inactive image"></span>
+                            </span>
+                            <span class="d-none" style="margin-left: 1rem">
+                                inactive
+                            </span>
+                        <% } %>
+                    </div>
+                <% })%>
+            </td>
+        </tr>
+    <% }) %>
+    </tbody>
+</table>

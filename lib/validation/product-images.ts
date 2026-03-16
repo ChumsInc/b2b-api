@@ -8,6 +8,7 @@ const debug = Debug('chums:lib:validation:product-images');
 export interface ProductImageInfo {
     filename: string|null;
     preferred: boolean;
+    active: boolean;
 }
 export interface ProductImageSet {
     productId: number;
@@ -34,7 +35,36 @@ export interface LoadProductImagesOptions {
 }
 async function loadProductImages(options: LoadProductImagesOptions): Promise<ProductImageSet[]> {
     try {
-        const sql = `SELECT d.productsID         AS productId,
+        const sql = `                                    
+                     SELECT 
+                            -- products without valid images or inactive images
+                            d.productsID         AS productId,
+                            d.keyword,
+                            d.ItemCode           AS itemCode,
+                            d.active,
+                            i.ItemCodeDesc       AS itemCodeDesc,
+                            i.ProductType        AS productType,
+                            i.InactiveItem = 'Y' AS inactiveItem,
+                            i.SalesUnitOfMeasure AS salesUnitOfMeasure,
+                            JSON_ARRAYAGG(
+                                    JSON_OBJECT(
+                                            'filename', p.products_image,
+                                            'active', img.active = 1,
+                                            'preferred', IF(img.preferred_image = 1, TRUE, FALSE)
+                                    ))           AS filenames
+                     FROM b2b_oscommerce.products_to_itemcodes d
+                              INNER JOIN c2.CI_Item i ON i.ItemCode = d.ItemCode AND i.Company = 'chums'
+                              INNER JOIN b2b_oscommerce.products p ON p.products_id = d.productsID
+                              LEFT JOIN c2.PM_Images img ON img.filename = p.products_image
+                     WHERE IFNULL(img.active, 0) = 0
+                     GROUP BY d.productsID, d.keyword, d.ItemCode, d.active, i.ItemCodeDesc, i.ProductType,
+                              i.InactiveItem,
+                              i.SalesUnitOfMeasure
+
+                     UNION
+                     
+                     -- items without images or inactive images
+                     SELECT d.productsID         AS productId,
                             d.keyword,
                             d.ItemCode           AS itemCode,
                             d.active,
@@ -45,27 +75,23 @@ async function loadProductImages(options: LoadProductImagesOptions): Promise<Pro
                             JSON_ARRAYAGG(
                                     JSON_OBJECT(
                                             'filename', img.filename,
-                                            'preferred', IF(img.preferred = 1, TRUE, FALSE)
+                                            'active', img.active = 1,
+                                            'preferred', IF(img.preferred_image = 1, TRUE, FALSE)
                                     ))           AS filenames
                      FROM b2b_oscommerce.products_to_itemcodes d
-                         LEFT JOIN c2.CI_Item i ON i.ItemCode = d.ItemCode AND i.Company = 'chums'
-                         LEFT JOIN (SELECT DISTINCT item_code, filename, 1 AS preferred
-                         FROM c2.PM_Images i
-                         WHERE i.active = 1
-                         UNION
-                         SELECT DISTINCT ip.item_code, ip.filename, 0 AS preferred
-                         FROM c2.PM_ImageProducts ip
-                         INNER JOIN c2.PM_Images i ON i.filename = ip.filename
-                         WHERE ip.active = 1) img ON img.item_code = d.ItemCode
-                     WHERE (IFNULL(:filename, '') = '' OR img.filename REGEXP :filename)
-                       AND (IFNULL(:itemCode, '') = '' OR d.ItemCode REGEXP :itemCode)
-                       AND (IFNULL(:missing, '0') = '0' OR img.filename IS NULL)
-                     GROUP BY d.productsID, d.keyword, d.ItemCode, d.active, i.ItemCodeDesc, i.ProductType,
-                         i.InactiveItem,
-                         i.SalesUnitOfMeasure
-                         
-                         UNION
+                              INNER JOIN b2b_oscommerce.products p ON p.products_id = d.productsID
+                              INNER JOIN b2b_oscommerce.products_items pi2
+                                         ON pi2.productsID = p.products_id AND pi2.itemCode = d.itemCode
+                              INNER JOIN c2.CI_Item i ON i.ItemCode = d.ItemCode AND i.Company = 'chums'
+                              LEFT JOIN c2.PM_Images img ON img.filename =
+                                                            IFNULL(JSON_VALUE(pi2.additionalData, '$.image_filename'),
+                                                                   p.products_image)
+                     WHERE IFNULL(img.active, 0) = 0
+                     GROUP BY d.productsID, d.keyword, d.ItemCode, d.active, i.ItemCodeDesc, i.ProductType
 
+                     UNION
+
+                     -- products items with missing images
                      SELECT p.products_id        AS productId,
                             p.products_keyword   AS keyword,
                             pi.itemCode,
@@ -76,16 +102,45 @@ async function loadProductImages(options: LoadProductImagesOptions): Promise<Pro
                             i.SalesUnitOfMeasure AS salesUnitOfMeasure,
                             JSON_ARRAY(JSON_OBJECT(
                                     'filename', JSON_EXTRACT(pi.additionalData, '$.image_filename'),
+                                    'active', img.active = 1,
                                     'preferred', FALSE
                                        ))
                      FROM b2b_oscommerce.products p
                               INNER JOIN b2b_oscommerce.products_items pi ON pi.productsID = p.products_id
                               INNER JOIN c2.CI_Item i ON i.ItemCode = pi.itemCode AND i.Company = 'chums'
-                     WHERE JSON_EXTRACT(additionalData, '$.image_filename') LIKE '%missing%'
-                       AND pi.active = 1
-                       and p.products_status = 1
-                       
-                   ORDER BY keyword, itemCode`;
+                              LEFT JOIN c2.PM_Images img
+                                        ON img.filename = JSON_VALUE(pi.additionalData, '$.image_filename')
+                     WHERE pi.active = 1
+                       AND p.products_status = 1                    
+                       AND (JSON_EXTRACT(additionalData, '$.image_filename') LIKE '%missing%'
+                         OR IFNULL(img.active, 0) = 0
+                         )
+
+                     UNION
+                     -- products with missing images
+                     SELECT p.products_id        AS productId,
+                            p.products_keyword   AS keyword,
+                            p.products_model     AS itemCode,
+                            p.products_status    AS active,
+                            i.ItemCodeDesc       AS itemCodeDesc,
+                            i.ProductType        AS productType,
+                            i.InactiveItem = 'Y' AS inactiveItem,
+                            i.SalesUnitOfMeasure AS salesUnitOfMeasure,
+                            JSON_ARRAY(JSON_OBJECT(
+                                    'filename', p.products_image,
+                                    'active', 0,
+                                    'preferred', FALSE
+                                       ))
+                     FROM b2b_oscommerce.products p
+                              INNER JOIN c2.CI_Item i ON i.ItemCode = p.products_model AND i.Company = 'chums'
+                              LEFT JOIN c2.PM_Images img ON img.filename = p.products_image
+                     WHERE p.products_status = 1
+                       AND (p.products_image LIKE '%missing%'
+                         OR IFNULL(p.products_image, '') = ''
+                         OR IFNULL(img.active, 0) = 0)
+
+
+                     ORDER BY keyword, itemCode`;
 
         const args = {
             filename: options.filename ?? null,
@@ -136,7 +191,7 @@ export const renderProductImageValidationTable = async (req:Request, res:Respons
             missing: req.query.missing as string === '1',
         }
         const items = await loadProductImages(args);
-        res.render('product-image-validation-table.pug', {items})
+        res.render('product-image-validation-table.ejs', {items})
     } catch(err:unknown) {
         if (err instanceof Error) {
             debug("renderProductImageValidationTable()", err.message);

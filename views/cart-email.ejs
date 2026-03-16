@@ -1,0 +1,80 @@
+<%
+/**
+ *  @name header
+ *  @type {B2BCartHeader}
+ *
+ *   *
+ * @name detail
+ * @type {EmailDetailLine}
+ *
+ *  *
+ * @name itemCount
+ * @type {number}
+ *
+ */
+ %>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>CHUMS B2B Proposed Order: <%- header.id -%></title>
+</head>
+<body style="font-family: Helvetica Neue,Helvetica,Arial,sans-serif; --webkit-size-adjust: 100%; --ms-text-size-adjust: 100%; margin: auto; max-width: 950px;">
+    <table cellspacing="0" cellpadding="0" border="0" width="100%"
+           style="width: 100%; border-spacing: 0; border-collapse: collapse; background-color: transparent; margin-top: 25px;" >
+        <tr>
+            <td colspan="2" style="text-align: center">
+                <div style="background-color: #fff; height: 15px">
+                    <img src="https://b2b.chums.com/images/chums/chums-logo-badge-400px.png" alt="Chums Logo"
+                         style="width: 150px; height: auto">
+                </div>
+                <div style="background-color: #fff; height: 35px; margin-bottom: 20px"></div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <h2 style="font-family: inherit; font-weight: 500; line-height: 1.1; color: inherit; font-size: 30px">
+                    Proposed Order
+                </h2>
+            </td>
+            <td>
+                <h3 style="font-family: inherit; font-weight: 500; line-height: 1.1; color: inherit; font-size: 20px; text-align: right;">
+                    <a href="https://b2b.chums.com/account/<%- `${header.arDivisionNo}-${header.customerNo}`%>/carts/<%- header.id %>">
+                        View on Chums B2B
+                    </a>
+                </h3>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                <hr/>
+            </td>
+        </tr>
+        <tr>
+            <td style="width: 50%">
+                <h3>Account: <span style="margin-left: 1rem;"><%- `${header.arDivisionNo}-${header.customerNo}` + (header.shipToCode ? `/${header.shipToCode}` : '') %></span></h3>
+            </td>
+            <td style="width: 50%">
+                <h3><%- header.customerName %></h3>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                <hr />
+            </td>
+        </tr>
+        <tr>
+            <td style="width: 50%; vertical-align: top">
+                <%- include('partials/cart-info.ejs', {header: header}) %>
+            </td>
+            <td style="width: 50%; vertical-align: top">
+                <%- include('partials/cart-delivery.ejs', {header: header}) %>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                <%- include('partials/cart-items-table.ejs', {header: header, detail: detail, itemCount: itemCount}) %>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>

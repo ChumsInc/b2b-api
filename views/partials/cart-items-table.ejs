@@ -1,0 +1,68 @@
+<%-
+/**
+ * Created by  on 12/12/2016.
+ *  @name header
+ *  @type {B2BCartHeader}
+ *
+ *
+ * @name detail
+ * @type {EmailDetailLine}
+ *
+ * @name itemCount
+ * @type {number}
+ */
+%>
+<table  cellspacing="0" cellpadding="0" border="0" width="100%"
+        style="width: 100%; border-spacing: 0; border-collapse: collapse; background-color: transparent; margin-top: 25px;">
+    <thead>
+    <tr>
+        <th style="padding: 5px; vertical-align: top; text-align: left; border-top: 1px solid #666; border-bottom: 1px solid #666;">
+            Item
+        </th>
+        <th style="padding: 5px; vertical-align: top; text-align: left; border-top: 1px solid #666; border-bottom: 1px solid #666;">
+            Description
+        </th>
+        <th title="Unit of Measure"
+            style="padding: 5px; vertical-align: top; text-align: left; border-top: 1px solid #666; border-bottom: 1px solid #666;">
+            U/M
+        </th>
+        <th style="padding: 5px; vertical-align: top; text-align: right;border-top: 1px solid #666; border-bottom: 1px solid #666;">
+            Order Quantity
+        </th>
+        <th style="padding: 5px; vertical-align: top; text-align: right;border-top: 1px solid #666; border-bottom: 1px solid #666;">
+            Unit Price
+        </th>
+        <th style="padding: 5px; vertical-align: top; text-align: right;border-top: 1px solid #666; border-bottom: 1px solid #666;">
+            MSRP
+        </th>
+        <th style="padding: 5px; vertical-align: top; text-align: right;border-top: 1px solid #666; border-bottom: 1px solid #666;">
+            Item Price
+        </th>
+        <th style="padding: 5px; vertical-align: top; text-align: right;border-top: 1px solid #666; border-bottom: 1px solid #666;">
+            Ext. Price
+        </th>
+    </tr>
+    </thead>
+    <tbody>
+    <% detail.forEach((item) => { %>
+        <%- include('cart-items-row.ejs', {row: item}) %>
+    <% }) %>
+    </tbody>
+    <tfoot>
+    <tr>
+        <td colspan="8"></td>
+    </tr>
+    <tr>
+        <td colspan="4" style="padding: 5px; vertical-align: top;border-top: 1px solid #666; border-bottom: 1px solid #666; font-weight: bold; ">
+            Cart Sub-Total
+        </td>
+        <td style="padding: 5px; vertical-align: top; text-align: right;border-top: 1px solid #666; border-bottom: 1px solid #666;; font-weight: bold;">
+            <%- itemCount %>
+        </td>
+        <td colspan="4"
+            style="padding: 5px; vertical-align: top; text-align: right;border-top: 1px solid #666; border-bottom: 1px solid #666; font-weight: bold;">
+            $ <%- header.subTotalAmt %>
+        </td>
+    </tr>
+    </tfoot>
+</table>

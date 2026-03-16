@@ -1,0 +1,25 @@
+<%
+/**
+ * @name header
+ * @type {B2BCartHeader}
+ */
+%>
+<table cellspacing="0" cellpadding="0" border="0" width="100%"
+       style="width: 100%; border-spacing: 0; border-collapse: collapse; background-color: transparent;">
+    <tr>
+        <th scope="row" style="padding: 5px; vertical-align: top; text-align: left">Cart #</th>
+        <td style="padding: 5px; vertical-align: top; text-align: left"><%- header.id %></td>
+    </tr>
+    <tr>
+        <th scope="row" style="padding: 5px; vertical-align: top; text-align: left">Created</th>
+        <td style="padding: 5px; vertical-align: top; text-align: left"><%- new Date(header.dateCreated).toLocaleDateString() %></td>
+    </tr>
+    <tr>
+        <th scope="row" style="padding: 5px; vertical-align: top; text-align: left">Quote Expires</th>
+        <td style="padding: 5px; vertical-align: top; text-align: left"><%- new Date(header.shipExpireDate).toLocaleDateString() %></td>
+    </tr>
+    <tr>
+        <th scope="row" style="padding: 5px; vertical-align: top; text-align: left">Cart Name</th>
+        <td style="padding: 5px; vertical-align: top; text-align: left"><%- header.customerPONo %></td>
+    </tr>
+</table>
