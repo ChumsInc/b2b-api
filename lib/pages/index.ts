@@ -8,8 +8,8 @@ const debug = Debug('chums:lib:pages:index');
 export const getPages = async (req: Request, res: Response<unknown, ValidatedUser>) => {
     try {
         const params: LoadPagesProps = {
-            id: req.params.id,
-            keyword: req.params.keyword,
+            id: req.params.id as string,
+            keyword: req.params.keyword as string,
             includeInactive: res.locals.profile?.roles.includes('web_admin') || res.locals.profile?.roles.includes('root'),
         }
         const pages = await loadPages(params);
@@ -26,8 +26,8 @@ export const getPages = async (req: Request, res: Response<unknown, ValidatedUse
 export const getPage = async (req: Request, res: Response<unknown, ValidatedUser>) => {
     try {
         const params = {
-            keyword: req.params.keyword,
-            id: req.params.id,
+            keyword: req.params.keyword as string,
+            id: req.params.id as string,
             includeInactive: res.locals.profile?.roles.includes('web_admin') || res.locals.profile?.roles.includes('root'),
         }
         const page = await loadPage(params);
@@ -63,7 +63,7 @@ export const postPage = async (req: Request, res: Response<unknown, ValidatedUse
 export const delPage = async (req: Request, res: Response<unknown, ValidatedUser>) => {
     try {
         const params = {
-            id: req.params.id,
+            id: req.params.id as string,
             includeInactive: res.locals.profile?.roles.includes('web_admin') || res.locals.profile?.roles.includes('root'),
         }
         const [page] = await loadPages(params);

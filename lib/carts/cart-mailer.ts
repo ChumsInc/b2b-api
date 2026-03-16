@@ -16,8 +16,8 @@ const debug = Debug('chums:lib:carts:cart-mailer');
 
 export async function getCartEmailHTML(req: Request, res: Response): Promise<void> {
     try {
-        const customerKey = req.params.customerKey;
-        const cartId = req.params.cartId;
+        const customerKey = req.params.customerKey as string;
+        const cartId = req.params.cartId as string;
         const userId = getUserId(res);
         if (!userId) {
             res.status(401).json({error: 'Login is required'});
@@ -41,8 +41,8 @@ export async function getCartEmailHTML(req: Request, res: Response): Promise<voi
 
 export async function getCartEmailText(req: Request, res: Response): Promise<void> {
     try {
-        const customerKey = req.params.customerKey;
-        const cartId = req.params.cartId;
+        const customerKey = req.params.customerKey as string;
+        const cartId = req.params.cartId as string;
         const userId = getUserId(res);
         if (!userId) {
             res.status(401).json({error: 'Login is required'});
@@ -67,8 +67,8 @@ export async function getCartEmailText(req: Request, res: Response): Promise<voi
 
 export async function getCartEmailJSON(req: Request, res: Response): Promise<void> {
     try {
-        const customerKey = req.params.customerKey;
-        const cartId = req.params.cartId;
+        const customerKey = req.params.customerKey as string;
+        const cartId = req.params.cartId as string;
         const userId = getUserId(res);
         if (!userId) {
             res.status(401).json({error: 'Login is required'});
@@ -94,8 +94,8 @@ export async function getCartEmailJSON(req: Request, res: Response): Promise<voi
 
 export async function sendCartEmail(req: Request, res: Response): Promise<void> {
     try {
-        const customerKey = req.params.customerKey;
-        const cartId = req.params.cartId;
+        const customerKey = req.params.customerKey as string;
+        const cartId = req.params.cartId as string;
         const userId = getUserId(res);
         if (!userId) {
             res.status(401).json({error: 'Login is required'});

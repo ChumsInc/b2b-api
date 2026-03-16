@@ -79,7 +79,8 @@ export async function loadProductItems({
             let additionalData: ProductAdditionalData = {};
             try {
                 additionalData = JSON.parse(row.additionalData);
-            } catch (err: unknown) {
+            } catch (_err: unknown) {
+                // do nothing
             }
             if (additionalData.season_id) {
                 const [season] = seasons.filter(s => s.product_season_id === additionalData.season_id);
@@ -193,7 +194,8 @@ async function deleteProductItem({id, productId}: Partial<ProductColorVariant>):
 
 export async function getProductItems(req: Request, res: Response) {
     try {
-        const {productId, id} = req.params;
+        const id = req.params.id as string;
+        const productId = req.params.productId as string;
         const items = await loadProductItems({id, productId});
         res.json({items});
     } catch (err: unknown) {

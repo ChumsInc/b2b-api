@@ -134,7 +134,7 @@ export async function deleteBanner(id: number | string): Promise<Banner[]> {
 
 export const getBanners = async (req: Request, res: Response): Promise<void> => {
     try {
-        const id = req.params.id;
+        const id = req.params.id as string;
         const active = false;
         const banners = await loadBanners({active, id});
         res.json({banners});
@@ -150,7 +150,7 @@ export const getBanners = async (req: Request, res: Response): Promise<void> => 
 
 export const getActiveBanners = async (req: Request, res: Response): Promise<void> => {
     try {
-        const id = req.params.id;
+        const id = req.params.id as string;
         const active = true;
         const banners = await loadBanners({active, id});
         res.json({banners});
@@ -180,7 +180,7 @@ export const postBanner = async (req: Request, res: Response): Promise<void> => 
 
 export const delBanner = async (req: Request, res: Response): Promise<void> => {
     try {
-        const banners = await deleteBanner(req.params.id);
+        const banners = await deleteBanner(req.params.id as string);
         res.json({banners});
     } catch (err) {
         if (err instanceof Error) {

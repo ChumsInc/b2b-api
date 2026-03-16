@@ -231,7 +231,21 @@ async function saveNewCategoryItem({...body}: ProductCategoryChild): Promise<Pro
                        VALUES (:parentId, :itemType, :sectionTitle, :sectionDescription, :title, :description,
                                :urlOverride, :className, :imageUrl, :productsId, :categoriesId, :priority,
                                :status)`;
-        const data = {...body};
+        const data = {
+            parentId: body.parentId,
+            itemType: body.itemType,
+            sectionTitle: body.sectionTitle,
+            sectionDescription: body.sectionDescription,
+            title: body.title,
+            description: body.description,
+            urlOverride: body.urlOverride,
+            className: body.className,
+            imageUrl: body.imageUrl,
+            productsId: body.productsId,
+            categoriesId: body.categoriesId,
+            priority: body.priority,
+            status: body.status,
+        };
 
         const [{insertId}] = await mysql2Pool.query<ResultSetHeader>(query, data);
         const [item] = await loadCategoryItems({id: insertId});
@@ -266,9 +280,23 @@ export async function saveCategoryItem({...body}: ProductCategoryChild): Promise
                            priority            = :priority,
                            status              = :status
                        WHERE item_id = :id`;
-        const data = {...body};
+        const sqlProps = {
+            parentId: body.parentId,
+            itemType: body.itemType,
+            sectionTitle: body.sectionTitle,
+            sectionDescription: body.sectionDescription,
+            title: body.title,
+            description: body.description,
+            urlOverride: body.urlOverride,
+            className: body.className,
+            imageUrl: body.imageUrl,
+            productsId: body.productsId,
+            categoriesId: body.categoriesId,
+            priority: body.priority,
+            status: body.status,
+        }
 
-        await mysql2Pool.query(query, data);
+        await mysql2Pool.query(query, sqlProps);
         const [item] = await loadCategoryItems({id: body.id});
         return item;
     } catch (err: unknown) {
@@ -337,9 +365,10 @@ export async function deleteCategoryItem({id, parentId}: DeleteCategoryItemProps
 
 export const getCategoryUsage = async (req:Request, res:Response) => {
     try {
-        const products = await findProductUsage(req.params.keyword);
-        const categories = await findCategoryUsage(req.params.keyword);
-        const menus = await findMenuUsage(req.params.keyword);
+        const keyword = req.params.keyword as string;
+        const products = await findProductUsage(keyword);
+        const categories = await findCategoryUsage(keyword);
+        const menus = await findMenuUsage(keyword);
         res.json({products, categories, menus});
     } catch (err) {
         if (err instanceof Error) {

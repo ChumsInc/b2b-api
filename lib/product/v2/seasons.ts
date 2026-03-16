@@ -110,7 +110,7 @@ export async function getSeasons(req: Request, res: Response) {
 
 export async function getSeason(req: Request, res: Response) {
     try {
-        const code = req.params.code;
+        const code = req.params.code as string;
         const seasons = await loadSeasons({code});
         if (seasons.length === 0) {
             res.json({error: 'Season not found'});

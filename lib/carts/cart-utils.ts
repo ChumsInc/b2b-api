@@ -178,7 +178,11 @@ export async function loadCartCustomerPriceLevel(props: LoadCartCustomerProps): 
                      WHERE c.Company = 'chums'
                        AND c.ARDivisionNo = :arDivisionNo
                        AND c.CustomerNo = :customerNo`
-        const [rows] = await mysql2Pool.query<PriceLevelRow[]>(sql, props);
+        const sqlProps = {
+            arDivisionNo: props.arDivisionNo,
+            customerNo: props.customerNo,
+        };
+        const [rows] = await mysql2Pool.query<PriceLevelRow[]>(sql, sqlProps);
         return rows[0]?.PriceLevel ?? null;
     } catch (err: unknown) {
         if (err instanceof Error) {

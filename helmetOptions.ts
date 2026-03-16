@@ -1,6 +1,4 @@
 import {HelmetOptions} from "helmet";
-import {IncomingMessage, ServerResponse} from "node:http";
-import {Response} from "express";
 
 export const helmetOptions:Readonly<HelmetOptions> = {
     contentSecurityPolicy: {

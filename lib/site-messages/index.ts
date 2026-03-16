@@ -19,7 +19,7 @@ export const getMessages = async (req: Request, res: Response) => {
 
 export const getMessage = async (req: Request, res: Response) => {
     try {
-        const [message = null] = await loadMessages(req.params.id);
+        const [message = null] = await loadMessages(req.params.id as string);
         if (!message) {
             return res.status(404).json({error: 'SiteMessage not found'});
         }
@@ -61,11 +61,12 @@ export const postMessage = async (req: Request, res: Response) => {
 
 export const delMessage = async (req: Request, res: Response) => {
     try {
-        const [_message] = await loadMessages(req.params.id);
+        const id = req.params.id as string;
+        const [_message] = await loadMessages(id);
         if (!_message) {
             return res.status(404).json({error: 'SiteMessage not found'});
         }
-        const messages = await deleteMessage(req.params.id);
+        const messages = await deleteMessage(id);
         res.json({messages});
     } catch (err) {
         if (err instanceof Error) {

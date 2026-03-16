@@ -269,7 +269,7 @@ export async function postCategory(req: Request, res: Response):Promise<void> {
 
 export async function delCategory(req: Request, res: Response):Promise<void> {
     try {
-        const {id} = req.params;
+        const id = req.params.id as string;
         const categories = await deleteCategory({id});
         res.json({categories});
     } catch (err: unknown) {
@@ -298,7 +298,7 @@ export async function postCategoryItem(req: Request, res: Response):Promise<void
 
 export async function postItemSort(req:Request, res:Response):Promise<void> {
     try {
-        const parentId = req.params.parentId;
+        const parentId = req.params.parentId as string;
         // debug('postItemSort()', parentId, req.body);
         const _items = req.body.items ?? [];
         if (!_items.length || !parentId) {
@@ -324,7 +324,8 @@ export async function postItemSort(req:Request, res:Response):Promise<void> {
 
 export async function delCategoryItem(req: Request, res: Response):Promise<void> {
     try {
-        const {id, parentId} = req.params;
+        const id = req.params.id as string;
+        const parentId = req.params.parentId as string;
         const items = await deleteCategoryItem({id, parentId});
         res.json({items});
     } catch (err: unknown) {

@@ -188,7 +188,7 @@ export async function getColors(req:Request, res:Response) {
 
 export async function getItems(req:Request, res:Response) {
     try {
-        const items = await loadColorUsage(req.params.id);
+        const items = await loadColorUsage(req.params.id as string);
         res.json({items});
     } catch(err:unknown) {
         if (err instanceof Error) {
@@ -201,7 +201,7 @@ export async function getItems(req:Request, res:Response) {
 
 export async function getMixItems(req:Request, res:Response) {
     try {
-        const items = await loadMixUsage(req.params.id);
+        const items = await loadMixUsage(req.params.id as string);
         res.json({items});
     } catch(err:unknown) {
         if (err instanceof Error) {

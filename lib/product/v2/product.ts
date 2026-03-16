@@ -372,8 +372,9 @@ export async function saveProduct(params: BasicProduct) {
                                       products_description = :description,
                                       products_details     = :details
                                   WHERE products_id = :id`;
+        const {season, additionalData, ...productProps} = product;
         const data = {
-            ...product,
+            ...productProps,
             additionalData: JSON.stringify(params.additionalData || {}),
         };
 
@@ -593,7 +594,12 @@ async function updateVariantSort(productId: string | number, variants: Partial<P
                        AND id = :id`;
 
         for await(const variant of variants) {
-            await mysql2Pool.query(sql, variant);
+            const sqlProps = {
+                priority: variant.priority,
+                parentProductID: variant.parentProductID,
+                id: variant.id,
+            }
+            await mysql2Pool.query(sql, sqlProps);
         }
         return loadVariants({productId: productId});
     } catch (err: unknown) {
@@ -626,7 +632,8 @@ async function deleteVariant(id: number | string): Promise<void> {
 
 export async function getProduct(req: Request, res: Response) {
     try {
-        const {id, keyword} = req.params;
+        const id = req.params.id as string;
+        const keyword = req.params.keyword as string;
         const product = await loadProduct({id, keyword, complete: !!keyword});
         if (!product) {
             return res.status(404).json({error: 'product not found'});
@@ -673,7 +680,7 @@ export async function getProductList(req: Request, res: Response) {
 
 export async function getVariantsList(req: Request, res: Response) {
     try {
-        const {productId} = req.params;
+        const productId = req.params.productId as string;
         const variants = await loadVariants({productId});
         res.json({variants});
     } catch (err: unknown) {
@@ -687,7 +694,8 @@ export async function getVariantsList(req: Request, res: Response) {
 
 export async function getVariant(req: Request, res: Response) {
     try {
-        const {productId, id} = req.params;
+        const id = req.params.id as string;
+        const productId = req.params.productId as string;
         const [variant = null] = await loadVariants({productId, id});
         res.json({variant});
     } catch (err: unknown) {
@@ -714,7 +722,8 @@ export async function postVariant(req: Request, res: Response) {
 
 export async function delVariant(req: Request, res: Response) {
     try {
-        const {productId, id} = req.params;
+        const id = req.params.id as string;
+        const productId = req.params.productId as string;
         await deleteVariant(id);
         const variants = await loadVariants({productId});
         res.json({variants});
@@ -729,7 +738,7 @@ export async function delVariant(req: Request, res: Response) {
 
 export async function postVariantSort(req: Request, res: Response) {
     try {
-        const {productId} = req.params;
+        const productId = req.params.productId as string;
         const variants = await updateVariantSort(productId, req.body);
         res.json({variants});
     } catch (err: unknown) {
@@ -743,7 +752,8 @@ export async function postVariantSort(req: Request, res: Response) {
 
 export async function postSetDefaultVariant(req: Request, res: Response) {
     try {
-        const {productId, id} = req.params;
+        const id = req.params.id as string;
+        const productId = req.params.productId as string;
         const variants = await setDefaultVariant({productId, variantId: id});
         res.json({variants});
     } catch (err: unknown) {

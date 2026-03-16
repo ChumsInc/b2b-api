@@ -153,7 +153,8 @@ export async function postImage(req:Request, res:Response):Promise<void> {
 
 export async function delImage(req:Request, res:Response):Promise<void> {
     try {
-        const {id, productId} = req.params;
+        const id = req.params.id as string;
+        const productId = req.params.productId as string;
         const images = await deleteImage({id, productId});
         res.json({images});
     } catch(err:unknown) {

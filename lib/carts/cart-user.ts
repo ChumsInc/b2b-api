@@ -36,7 +36,7 @@ export async function loadCartUser(userId: string|number): Promise<B2BUserInfo|n
 
 export const getCartUser = async (req:Request, res:Response) => {
     try {
-        const user = await loadCartUser(req.params.userId);
+        const user = await loadCartUser(req.params.userId as string);
         res.json({user});
         return;
     } catch(err:unknown) {

@@ -66,7 +66,8 @@ export const getKeywords = async (req: Request, res: Response) => {
 
 export const getKeyword = async (req: Request, res: Response) => {
     try {
-        const [row] = await loadKeywords({keyword: req.params.keyword, includeInactive: true});
+        const keyword = req.params.keyword as string;
+        const [row] = await loadKeywords({keyword, includeInactive: true});
         res.json({keyword: row ?? null});
     } catch(err:unknown) {
         if (err instanceof Error) {

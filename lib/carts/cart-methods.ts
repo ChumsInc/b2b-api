@@ -1,5 +1,5 @@
 import Debug from "debug";
-import {NextFunction, Request, Response} from "express";
+import {Request, Response} from "express";
 import {addToCart, removeCartItem, updateCartItem} from "./cart-detail-handlers.js";
 import {cancelCartHeader, updateCartHeader, updateCartPrinted, updateCartTotals} from "./cart-header-handlers.js";
 import {loadCart, loadCartHeader, loadCartOrder, loadCustomerCarts} from "./load-cart.js";
@@ -14,8 +14,8 @@ const debug = Debug('chums:lib:carts:cart-methods');
 
 export async function getCart(req: Request, res: Response): Promise<void> {
     try {
-        const customerKey = req.params.customerKey;
-        const cartId = req.params.cartId;
+        const customerKey = req.params.customerKey as string;
+        const cartId = req.params.cartId as string;
         const userId = getUserId(res);
         if (!userId) {
             res.status(401).json({error: 'Login is required'});
@@ -41,8 +41,8 @@ export async function getCart(req: Request, res: Response): Promise<void> {
 
 export async function getCartOrder(req: Request, res: Response): Promise<void> {
     try {
-        const customerKey = req.params.customerKey;
-        const cartId = req.params.cartId;
+        const customerKey = req.params.customerKey as string;
+        const cartId = req.params.cartId as string;
         const userId = getUserId(res);
         if (!userId) {
             res.status(401).json({error: 'Login is required'});
@@ -67,7 +67,7 @@ export async function getCartOrder(req: Request, res: Response): Promise<void> {
 
 export async function postCartPrinted(req: Request, res: Response): Promise<void> {
     try {
-        const cartId = req.params.cartId;
+        const cartId = req.params.cartId as string;
         const userId = getUserId(res);
         if (!userId) {
             res.status(401).json({error: 'Login is required'});
@@ -87,7 +87,7 @@ export async function postCartPrinted(req: Request, res: Response): Promise<void
 
 export async function deleteCartPrinted(req: Request, res: Response): Promise<void> {
     try {
-        const cartId = req.params.cartId;
+        const cartId = req.params.cartId as string;
         const userId = getUserId(res);
         if (!userId) {
             res.status(401).json({error: 'Login is required'});
@@ -107,7 +107,7 @@ export async function deleteCartPrinted(req: Request, res: Response): Promise<vo
 
 export async function getCartsList(req: Request, res: Response) {
     try {
-        const customerKey = req.params.customerKey;
+        const customerKey = req.params.customerKey as string;
         const userId = getUserId(res);
         if (!userId) {
             res.status(401).json({error: 'Login is required'});
@@ -118,7 +118,7 @@ export async function getCartsList(req: Request, res: Response) {
         }
         const carts = await loadCartHeader({customerKey, userId}, 'C');
         res.json({carts})
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getCartsList()", err.message);
             res.status(500).json({error: err.message, name: err.name});
@@ -130,7 +130,7 @@ export async function getCartsList(req: Request, res: Response) {
 
 export async function getOrdersList(req: Request, res: Response) {
     try {
-        const customerKey = req.params.customerKey;
+        const customerKey = req.params.customerKey as string;
         const userId = getUserId(res);
         if (!userId) {
             res.status(401).json({error: 'Login is required'});
@@ -141,7 +141,7 @@ export async function getOrdersList(req: Request, res: Response) {
         }
         const orders = await loadCartHeader({customerKey, userId}, 'O');
         res.json({orders})
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getOrdersList()", err.message);
             res.status(500).json({error: err.message, name: err.name});
@@ -153,7 +153,7 @@ export async function getOrdersList(req: Request, res: Response) {
 
 export async function getCustomerCarts(req: Request, res: Response) {
     try {
-        const customerKey = req.params.customerKey;
+        const customerKey = req.params.customerKey as string;
         const userId = getUserId(res);
         if (!userId) {
             res.status(401).json({error: 'Login is required'});
@@ -162,7 +162,7 @@ export async function getCustomerCarts(req: Request, res: Response) {
         await syncFromC2({customerKey});
         const carts = await loadCustomerCarts({userId, customerKey});
         res.json({carts})
-    } catch(err:unknown) {
+    } catch (err: unknown) {
         if (err instanceof Error) {
             debug("getCustomerCarts()", err.message);
             res.status(500).json({error: err.message, name: err.name});
@@ -173,10 +173,11 @@ export async function getCustomerCarts(req: Request, res: Response) {
 }
 
 
-export const putUpdateCart = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const putUpdateCart = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = res.locals.profile!.user.id;
-        const {customerKey, cartId} = req.params;
+        const customerKey = req.params.customerKey as string;
+        const cartId = req.params.cartId as string;
         const body: UpdateCartHeaderBody = {
             shipToCode: req.body.shipToCode ?? undefined,
             customerPONo: req.body.customerPONo ?? undefined,
@@ -199,7 +200,8 @@ export const putUpdateCart = async (req: Request, res: Response, next: NextFunct
 export const deleteCart = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = res.locals.profile!.user.id;
-        const {customerKey, cartId} = req.params;
+        const customerKey = req.params.customerKey as string;
+        const cartId = req.params.cartId as string;
         await cancelCartHeader({userId, customerKey, cartId});
         const carts = await loadCartHeader({userId, customerKey}, 'C');
         res.json({carts});
@@ -259,7 +261,9 @@ export const postAddToCart = async (req: Request, res: Response): Promise<void> 
 export const putUpdateCartItem = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = res.locals.profile!.user.id;
-        const {customerKey, cartId, cartItemId} = req.params;
+        const customerKey = req.params.customerKey as string;
+        const cartId = req.params.cartId as string;
+        const cartItemId = req.params.cartItemId as string;
         if (isUpdateCartItemBody(req.body)) {
             const body: UpdateCartItemBody = {
                 quantityOrdered: req.body.quantityOrdered,
@@ -282,7 +286,8 @@ export const putUpdateCartItem = async (req: Request, res: Response): Promise<vo
 export const putUpdateCartItems = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = res.locals.profile!.user.id;
-        const {customerKey, cartId} = req.params;
+        const customerKey = req.params.customerKey as string;
+        const cartId = req.params.cartId as string;
         if (isUpdateCartItemsBody(req.body)) {
             for await (const item of req.body.items) {
                 if (isUpdateCartItemBody(item)) {
@@ -318,7 +323,9 @@ export const putUpdateCartItems = async (req: Request, res: Response): Promise<v
 export const deleteCartItem = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = res.locals.profile!.user.id;
-        const {customerKey, cartId, cartItemId} = req.params;
+        const customerKey = req.params.customerKey as string;
+        const cartId = req.params.cartId as string;
+        const cartItemId = req.params.cartItemId as string;
         await removeCartItem({userId, customerKey, cartId, cartItemId});
         const cart = await loadCart({cartId, userId});
         res.json({cart});
@@ -335,7 +342,8 @@ export const deleteCartItem = async (req: Request, res: Response): Promise<void>
 export const postDuplicateSalesOrder = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = res.locals.profile!.user.id;
-        const {customerKey, salesOrderNo} = req.params;
+        const customerKey = req.params.customerKey as string;
+        const salesOrderNo = req.params.salesOrderNo as string;
         const cartName = req.body.cartName ?? null;
         const shipToCode = req.body.shipToCode ?? null;
         const allowZeroPrice = [1, 2].includes(res.locals.profile?.user.accountType ?? 0);

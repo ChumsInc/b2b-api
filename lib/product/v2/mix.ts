@@ -93,7 +93,8 @@ export async function loadMix(id: number | string): Promise<ProductMixVariant | 
                     const [season] = seasons.filter(s => s.product_season_id === additionalData.season?.product_season_id);
                     additionalData.season.active = season.active;
                 }
-            } catch (err) {
+            } catch (_err) {
+                // do nothing
             }
             return {
                 ...row,
@@ -260,7 +261,7 @@ async function deleteMix(id: number | string): Promise<void> {
 
 export async function getMix(req: Request, res: Response) {
     try {
-        const mix = await loadMix(req.params.productId);
+        const mix = await loadMix(req.params.productId as string);
         res.json({mix});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -273,7 +274,7 @@ export async function getMix(req: Request, res: Response) {
 
 export async function getSageBOM(req: Request, res: Response) {
     try {
-        const {id} = req.params;
+        const id = req.params.id as string;
         const components = await loadSageBillComponents({id});
         res.json({components});
     } catch (err: unknown) {
@@ -303,7 +304,7 @@ export async function postMixItems(req: Request, res: Response) {
         const items = req.body as ProductMixComponent[];
         debug('postMixItems()', items);
         await Promise.all(items.map(item => saveMixItem(item)));
-        const mix = await loadMix(req.params.productId);
+        const mix = await loadMix(req.params.productId as string);
         res.json({mix});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -316,7 +317,8 @@ export async function postMixItems(req: Request, res: Response) {
 
 export async function delMixItem(req: Request, res: Response) {
     try {
-        const {productId, mixID, id} = req.params;
+        const mixID = req.params.mixID as string;
+        const id = req.params.id as string;
         await deleteMixItem({mixID, id});
         res.json({success: true});
     } catch (err: unknown) {
