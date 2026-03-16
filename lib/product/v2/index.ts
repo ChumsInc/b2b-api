@@ -1,4 +1,4 @@
-import {deprecationNotice, validateUser} from 'chums-local-modules';
+import {validateUser} from 'chums-local-modules';
 import {validateAdmin} from '../../common.js';
 import {Router} from "express";
 import {
@@ -52,96 +52,31 @@ router.put('/images/:id.json', validateUser, validateAdmin, postImage);
 router.delete('/image/:productId/:id.json', validateUser, validateAdmin, delImage);
 
 router.get('/id/:id.json', getProduct);
-router.get('/id/:id(\\d+)', deprecationNotice, getProduct);
 router.get('/keyword/:keyword.json', getProduct);
-router.get('/keyword/:keyword', deprecationNotice, getProduct);
 router.get('/items/:productId.json', getProductItems);
-router.get('/items/:productId', deprecationNotice,  getProductItems);
 router.post('/:id.json', validateUser, validateAdmin, postProduct);
-router.post('/:id(\\d+)', deprecationNotice, validateUser, validateAdmin, postProduct);
 router.put('/:id.json', validateUser, validateAdmin, postProduct);
-router.put('/:id(\\d+)', deprecationNotice, validateUser, validateAdmin, postProduct);
 
 router.get('/list.json', getProductList);
 // router.get('/products/:keyword')
 
 router.get('/mix/:productId.json', getMix);
-router.get('/mix/:productId(\\d+)', deprecationNotice, getMix);
 router.get('/mix/:productId/bom.json', validateUser, validateAdmin, getSageBOM);
-router.get('/mix/:productId(\\d+)/bom', deprecationNotice, validateUser, validateAdmin, getSageBOM);
 router.post('/mix/:productId/:mixID/items.json', validateUser, validateAdmin, postMixItems);
-router.post('/mix/:productId(\\d+)/:mixID(\\d+)/items', deprecationNotice, validateUser, validateAdmin, postMixItems);
 router.post('/mix/:productId.json', validateUser, validateAdmin, postMix);
-router.post('/mix/:productId(\\d+)', deprecationNotice, validateUser, validateAdmin, postMix);
 router.put('/mix/:productId/:mixID.json', validateUser, validateAdmin, postMix);
-router.put('/mix/:productId(\\d+)/:mixID(\\d+)', deprecationNotice, validateUser, validateAdmin, postMix);
 router.delete('/mix/:productId/:mixID/:id.json', validateUser, validateAdmin, delMixItem);
-router.delete('/mix/:productId(\\d+)/:mixID(\\d+)/:id(\\d+)', deprecationNotice, validateUser, validateAdmin, delMixItem);
 
 router.get('/seasons.json', getSeasons);
 router.get('/seasons/:code.json', getSeason);
 router.post('/seasons/:id.json', validateUser, validateAdmin, postSeason);
 
 router.get('/variants/:productId.json', getVariantsList)
-router.get('/variants/:productId(\\d+)', deprecationNotice, getVariantsList)
 router.get('/variants/:productId/:id.json', getVariant);
-router.get('/variants/:productId(\\d+)/:id(\\d+)', deprecationNotice, getVariant);
 router.post('/variants/:productId.json', validateUser, validateAdmin, postVariant);
-router.post('/variants/:productId(\\d+)', deprecationNotice, validateUser, validateAdmin, postVariant);
 router.put('/variants/:productId/sort.json', validateUser, validateAdmin, postVariantSort);
-router.put('/variants/:productId(\\d+)/sort', deprecationNotice, validateUser, validateAdmin, postVariantSort);
 router.put('/variants/:productId/:id.json', validateUser, validateAdmin, postVariant);
-router.put('/variants/:productId(\\d+)/:id(\\d+)', deprecationNotice, validateUser, validateAdmin, postVariant);
 router.put('/variants/:productId/:id/default.json', validateUser, validateAdmin, postSetDefaultVariant);
-router.put('/variants/:productId(\\d+)/:id(\\d+)/default', deprecationNotice, validateUser, validateAdmin, postSetDefaultVariant);
 router.delete('/variants/:productId/:id.json', validateUser, validateAdmin, delVariant);
-router.delete('/variants/:productId(\\d+)/:id(\\d+)', deprecationNotice, validateUser, validateAdmin, delVariant);
-
-
-// deprecated paths below that prevent express v5
-
-router.use(deprecationNotice);
-router.get('/category/:id(\d+)', getCategory);
-router.get('/category/:keyword([\w\-]+)', getCategory);
-router.get('/category/:parentId(\d+)/items/:id(\d+)?', getCategoryItems);
-router.get('/category/parent/:parentId(\d+)', getCategories);
-
-router.post('/category/', validateUser, validateAdmin, postCategory);
-router.post('/category/item', validateUser, validateAdmin, postCategoryItem);
-router.post('/category/:parentId(\d+)/sort', validateUser, validateAdmin, postItemSort);
-router.delete('/category/:id(\d+)', validateUser, validateAdmin, delCategory);
-router.delete('/category/item/:id(\d+)', validateUser, validateAdmin, delCategoryItem);
-
-router.get('/images/product/:productId(\\d+)', deprecationNotice, getImages);
-router.get('/images/:id(\\d+)', deprecationNotice, getImage);
-router.post('/images/', deprecationNotice, validateUser, validateAdmin, postImage);
-router.put('/images/:id(\\d+)', deprecationNotice, validateUser, validateAdmin, postImage);
-router.delete('/image/:productId(\\d+)/:id(\\d+)', deprecationNotice, validateUser, validateAdmin, delImage);
-
-
-router.get('/id/:id(\\d+)', getProduct);
-router.get('/keyword/:keyword', getProduct);
-router.get('/items/:productId', getProductItems);
-router.post('/:id(\\d+)', validateUser, validateAdmin, postProduct);
-router.put('/:id(\\d+)', validateUser, validateAdmin, postProduct);
-
-// router.get('/list/:mfg(\\d+)', getProductList);
-// router.get('/products/:keyword')
-
-router.get('/mix/:productId(\\d+)', getMix);
-router.get('/mix/:productId(\\d+)/bom', validateUser, validateAdmin, getSageBOM);
-router.post('/mix/:productId(\\d+)/:mixID(\\d+)/items', validateUser, validateAdmin, postMixItems);
-router.post('/mix/:productId(\\d+)', validateUser, validateAdmin, postMix);
-router.put('/mix/:productId(\\d+)/:mixID(\\d+)', validateUser, validateAdmin, postMix);
-router.delete('/mix/:productId(\\d+)/:mixID(\\d+)/:id(\\d+)', validateUser, validateAdmin, delMixItem);
-
-router.get('/variants/:productId(\\d+)', getVariantsList)
-router.get('/variants/:productId(\\d+)/:id(\\d+)', getVariant);
-router.post('/variants/:productId(\\d+)', validateUser, validateAdmin, postVariant);
-router.put('/variants/:productId(\\d+)/sort', validateUser, validateAdmin, postVariantSort);
-router.put('/variants/:productId(\\d+)/:id(\\d+)', validateUser, validateAdmin, postVariant);
-router.put('/variants/:productId(\\d+)/:id(\\d+)/default', validateUser, validateAdmin, postSetDefaultVariant);
-router.delete('/variants/:productId(\\d+)/:id(\\d+)', validateUser, validateAdmin, delVariant);
-
 
 export default router;
