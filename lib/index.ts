@@ -19,6 +19,7 @@ import {getPreloadedStateV2, getPreloadedStateV2js} from "./preloaded-state/v2.j
 import {cookieConsentHelper, getCookieConsent, postCookieConsent} from "cookie-consent";
 import {getCookieConsentInfo} from "./cookie-consent/index.js";
 import {getPreloadedStateV2a, renderPreloadedStateV2a} from "./preloaded-state/v2-1.js";
+import {getItemSearch} from "./search/item-search.js";
 
 const debug = Debug('chums:lib:index');
 const router = Router();
@@ -66,6 +67,7 @@ router.get('/preload/v2a/state.js', renderPreloadedStateV2a)
 router.get('/preload/state.json', formattedState);
 router.get('/preload/state.js', preloadJS);
 router.use('/products', productRouter);
+router.get('/search/items.json', getItemSearch)
 router.get('/search.json', getSearch3b);
 router.get('/search/v3/:term', getSearch3);
 router.get('/pages.json', validateUser, validateAdmin, getPages);
