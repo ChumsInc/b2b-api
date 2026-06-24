@@ -4,7 +4,7 @@ import {SalesOrderDetailLine} from "chums-types/b2b";
 import {Decimal} from "decimal.js";
 import {dbDate, dbDateTimeFormat, loadUserIdFromSageUser} from "./utils.js";
 import {Request, Response} from 'express'
-import {ResultSetHeader} from "mysql2";
+import {QueryValues, ResultSetHeader} from "mysql2";
 import dayjs from "dayjs";
 import {B2BCartSyncHeader, B2BCartSyncLine, SageSalesOrderResponse} from "./types/cart-utils.js";
 import {SalesOrderStatus} from "b2b-types";
@@ -428,7 +428,7 @@ export async function syncFromSage(salesOrderNo: string): Promise<SyncFromSageRe
                                 FROM b2b.cart_detail
                                 WHERE salesOrderNo = :salesOrderNo
                                   AND lineStatus = 'X'`;
-        await mysql2Pool.query(sqlHeader, salesOrder);
+        await mysql2Pool.query(sqlHeader, salesOrder as unknown as QueryValues);
         await mysql2Pool.query(sqlDetailPrep, {salesOrderNo});
         await Promise.allSettled(detail.map(row => mysql2Pool.query(sqlDetail, row)));
         await mysql2Pool.query(sqlDetailClean, {salesOrderNo});
@@ -477,7 +477,7 @@ export async function postSyncCarts(req: Request, res: Response): Promise<void> 
 
 export async function postSyncSage(req: Request, res: Response): Promise<void> {
     try {
-        const salesOrderNo = req.params.salesOrderNo;
+        const salesOrderNo = req.params.salesOrderNo as string;
         const response = await syncFromSage(salesOrderNo);
         res.json({...response});
     } catch (err: unknown) {
