@@ -20,7 +20,7 @@ const DEFAULT_PAGE: ContentPage = {
     priority: 0.5,
     searchWords: '',
     status: false,
-    redirectTo: 0,
+    redirectTo: null,
     requiresLogin: false,
 };
 
@@ -71,16 +71,15 @@ export const loadPages = async ({id = null, keyword = null, includeInactive = fa
     }
 };
 
-export async function loadPage({id, keyword, includeInactive = false}: {
+export async function loadPage({id, keyword}: {
     id?: number | string;
     keyword?: string;
-    includeInactive?: boolean;
 }): Promise<ContentPage | null> {
     try {
         if (!keyword && !id) {
             return null;
         }
-        const [page] = await loadPages({keyword, id, includeInactive});
+        const [page] = await loadPages({keyword, id, includeInactive: true});
         if (page && page.filename) {
             page.content = await loadPageContent(page.filename);
         }
@@ -179,7 +178,7 @@ export const savePage = async (body: ContentPage) => {
             more_data: JSON.stringify(more_data)
         };
         await mysql2Pool.query<ResultSetHeader>(query, data);
-        return await loadPage({id: body.id, includeInactive: true});
+        return await loadPage({id: body.id});
     } catch (err: unknown) {
         if (err instanceof Error) {
             debug("savePage()", err.message);
