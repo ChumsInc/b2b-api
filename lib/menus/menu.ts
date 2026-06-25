@@ -111,7 +111,7 @@ export async function loadMenu(id: number | string, options?: LoadMenusOptions):
     }
 }
 
-async function saveNewMenu({...body}: Menu): Promise<Menu|null> {
+async function saveNewMenu({...body}: Menu): Promise<Menu | null> {
     try {
         const query = `INSERT INTO b2b_oscommerce.menu (title, description, class, status)
                        VALUES (:title, :description, :className, :status)`;
@@ -128,7 +128,7 @@ async function saveNewMenu({...body}: Menu): Promise<Menu|null> {
     }
 }
 
-async function saveMenu({...body}: Menu): Promise<Menu|null> {
+async function saveMenu({...body}: Menu): Promise<Menu | null> {
     try {
         if (!body.id) {
             return saveNewMenu({...body});
@@ -218,15 +218,24 @@ async function loadItems(parentId: string | number, id: string | number | null =
     }
 }
 
-async function saveNewItem({...body}: MenuItem): Promise<MenuItem> {
+async function saveNewItem(arg: MenuItem): Promise<MenuItem> {
     try {
         const query = `INSERT INTO b2b_oscommerce.menu_items (parent_menu_id, child_menu_id, title, description, class,
                                                               priority, url,
                                                               status)
                        VALUES (:parentId, :menuId, :title, :description, :className, :priority, :url, :status)`;
-        const data = {...defaultMenuItem, ...body};
+        const data = {
+            parentId: arg.parentId,
+            menuId: arg.menuId ?? defaultMenuItem.menuId,
+            title: arg.title,
+            description: arg.description ?? defaultMenuItem.description,
+            className: arg.className ?? defaultMenuItem.className,
+            priority: arg.priority ?? defaultMenuItem.priority,
+            url: arg.url ?? defaultMenuItem.url,
+            status: arg.status ?? defaultMenuItem.status
+        };
         const [{insertId}] = await mysql2Pool.query<ResultSetHeader>(query, data);
-        const [item] = await loadItems(body.parentId, insertId);
+        const [item] = await loadItems(arg.parentId, insertId);
         return item;
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -238,10 +247,10 @@ async function saveNewItem({...body}: MenuItem): Promise<MenuItem> {
     }
 }
 
-async function saveItem({...body}: MenuItem): Promise<MenuItem> {
+async function saveItem(arg: MenuItem): Promise<MenuItem> {
     try {
-        if (!body.id) {
-            return saveNewItem({...body});
+        if (!arg.id) {
+            return saveNewItem(arg);
         }
         const query = `UPDATE b2b_oscommerce.menu_items
                        SET parent_menu_id = :parentId,
@@ -253,9 +262,19 @@ async function saveItem({...body}: MenuItem): Promise<MenuItem> {
                            url            = :url,
                            status         = :status
                        WHERE item_id = :id`;
-        const data = {...defaultMenuItem, ...body};
+
+        const data = {
+            parentId: arg.parentId,
+            menuId: arg.menuId ?? defaultMenuItem.menuId,
+            title: arg.title,
+            description: arg.description ?? defaultMenuItem.description,
+            className: arg.className ?? defaultMenuItem.className,
+            priority: arg.priority ?? defaultMenuItem.priority,
+            url: arg.url ?? defaultMenuItem.url,
+            status: arg.status ?? defaultMenuItem.status
+        };
         await mysql2Pool.query(query, data);
-        const [item] = await loadItems(body.parentId, body.id);
+        const [item] = await loadItems(arg.parentId, arg.id);
         return item;
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -311,7 +330,7 @@ async function updateItemSort(parentId: number | string, items: (number | string
 
 export const getMenus = async (req: Request, res: Response): Promise<void> => {
     try {
-        const menus = await loadMenus(req.params.id, {includeInactive: true});
+        const menus = await loadMenus(req.params.id as string, {includeInactive: true});
         res.json({menus});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -325,7 +344,7 @@ export const getMenus = async (req: Request, res: Response): Promise<void> => {
 
 export const getMenu = async (req: Request, res: Response): Promise<void> => {
     try {
-        const menu = await loadMenu(req.params.id, {includeInactive: true});
+        const menu = await loadMenu(req.params.id as string, {includeInactive: true});
         res.json({menu});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -339,7 +358,7 @@ export const getMenu = async (req: Request, res: Response): Promise<void> => {
 
 export const getActiveMenus = async (req: Request, res: Response): Promise<void> => {
     try {
-        const menus = await loadMenus(req.params.id);
+        const menus = await loadMenus(req.params.id as string);
         res.json({menus});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -353,7 +372,7 @@ export const getActiveMenus = async (req: Request, res: Response): Promise<void>
 
 export const getActiveMenu = async (req: Request, res: Response): Promise<void> => {
     try {
-        const menu = await loadMenu(req.params.id);
+        const menu = await loadMenu(req.params.id as string);
         res.json({menu});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -368,7 +387,7 @@ export const getActiveMenu = async (req: Request, res: Response): Promise<void> 
 
 export const getMenuItems = async (req: Request, res: Response): Promise<void> => {
     try {
-        const items = await loadItems(req.params.parentId, req.params.id, {includeInactive: true});
+        const items = await loadItems(req.params.parentId as string, req.params.id as string, {includeInactive: true});
         res.json({items});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -383,7 +402,7 @@ export const getMenuItems = async (req: Request, res: Response): Promise<void> =
 export const getParents = async (req: Request, res: Response): Promise<void> => {
     try {
 
-        const parents = await loadParentMenuList(req.params.id);
+        const parents = await loadParentMenuList(req.params.id as string);
         res.json({parents});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -397,7 +416,7 @@ export const getParents = async (req: Request, res: Response): Promise<void> => 
 
 export const postMenu = async (req: Request, res: Response): Promise<void> => {
     try {
-        const menu = await saveMenu({...req.body});
+        const menu = await saveMenu(req.body);
         res.json({menu});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -411,7 +430,7 @@ export const postMenu = async (req: Request, res: Response): Promise<void> => {
 
 export const delMenu = async (req: Request, res: Response): Promise<void> => {
     try {
-        const menus = await deleteMenu(req.params.id);
+        const menus = await deleteMenu(req.params.id as string);
         res.json({menus});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -425,7 +444,7 @@ export const delMenu = async (req: Request, res: Response): Promise<void> => {
 
 export const postMenuItem = async (req: Request, res: Response): Promise<void> => {
     try {
-        const item = await saveItem({...req.body});
+        const item = await saveItem(req.body);
         res.json({item});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -439,7 +458,7 @@ export const postMenuItem = async (req: Request, res: Response): Promise<void> =
 
 export const delMenuItem = async (req: Request, res: Response): Promise<void> => {
     try {
-        const items = await deleteItem(req.params.parentId, req.params.id);
+        const items = await deleteItem(req.params.parentId as string, req.params.id as string);
         res.json({items});
     } catch (err: unknown) {
         if (err instanceof Error) {
@@ -453,7 +472,7 @@ export const delMenuItem = async (req: Request, res: Response): Promise<void> =>
 
 export const postItemSort = async (req: Request, res: Response): Promise<void> => {
     try {
-        const items = await updateItemSort(req.params.parentId, req.body.items ?? []);
+        const items = await updateItemSort(req.params.parentId as string, req.body.items ?? []);
         res.json({items});
     } catch (err: unknown) {
         if (err instanceof Error) {
